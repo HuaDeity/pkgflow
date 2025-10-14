@@ -1,7 +1,7 @@
-# Example: Complete flake.nix using flox-manifest-nix
+# Example: Complete flake.nix using pkgflow-nix
 
 {
-  description = "Example flake using flox-manifest-nix";
+  description = "Example flake using pkgflow-nix";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -10,9 +10,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Add flox-manifest-nix
-    flox-manifest = {
-      url = "github:yourusername/flox-manifest-nix";
+    # Add pkgflow-nix
+    pkgflow = {
+      url = "github:yourusername/pkgflow-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -23,13 +23,13 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, flox-manifest, ... }@inputs: {
+  outputs = { self, nixpkgs, home-manager, pkgflow, ... }@inputs: {
     # Home-manager configuration
     homeConfigurations."user@laptop" = home-manager.lib.homeManagerConfiguration {
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
 
       modules = [
-        flox-manifest.homeModules.default
+        pkgflow.homeModules.default
 
         {
           home.username = "user";
@@ -37,7 +37,7 @@
           home.stateVersion = "24.05";
 
           # Configure manifest package installation
-          flox.manifestPackages = {
+          pkgflow.manifestPackages = {
             enable = true;
             manifestFile = ./manifest.toml;
             flakeInputs = inputs;
@@ -51,12 +51,12 @@
       system = "x86_64-linux";
 
       modules = [
-        flox-manifest.nixosModules.default
+        pkgflow.nixosModules.default
         ./hardware-configuration.nix
 
         {
           # System configuration
-          flox.manifestPackages = {
+          pkgflow.manifestPackages = {
             enable = true;
             manifestFile = ./system-manifest.toml;
             flakeInputs = inputs;

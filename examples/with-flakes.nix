@@ -7,10 +7,10 @@
 
 {
   imports = [
-    inputs.flox-manifest.homeModules.default
+    inputs.pkgflow.homeModules.default
   ];
 
-  flox.manifestPackages = {
+  pkgflow.manifestPackages = {
     enable = true;
     manifestFile = ./manifest.toml;
 

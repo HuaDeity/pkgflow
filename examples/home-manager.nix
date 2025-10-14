@@ -1,20 +1,20 @@
 # Example: Home-manager standalone configuration
 #
-# This example shows how to use flox-manifest-nix with home-manager
+# This example shows how to use pkgflow-nix with home-manager
 # to automatically install packages from a Flox manifest.
 
 { inputs, pkgs, ... }:
 
 {
   imports = [
-    inputs.flox-manifest.homeModules.default
+    inputs.pkgflow.homeModules.default
   ];
 
   # Set global manifest path (optional)
-  flox.manifest.file = ./my-project/.flox/env/manifest.toml;
+  pkgflow.manifest.file = ./my-project/.flox/env/manifest.toml;
 
   # Enable manifest package installation
-  flox.manifestPackages = {
+  pkgflow.manifestPackages = {
     enable = true;
     # manifestFile = ./custom-manifest.toml;  # Override global path if needed
 

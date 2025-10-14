@@ -1,8 +1,8 @@
-# Home-manager module for installing packages from Flox manifest
+# Home-manager module for installing packages from package manifests
 { config, lib, pkgs, options, ... }:
 
 let
-  cfg = config.flox.manifestPackages;
+  cfg = config.pkgflow.manifestPackages;
 
   # Check if we're in a system context (NixOS/Darwin) or home-manager context
   hasSystemPackages = options ? environment.systemPackages;
@@ -70,11 +70,11 @@ let
     resolvedPackages;
 in
 {
-  options.flox.manifestPackages = {
+  options.pkgflow.manifestPackages = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Enable automatic package installation from Flox manifest.";
+      description = "Enable automatic package installation from package manifest.";
     };
 
     manifestFile = lib.mkOption {
@@ -82,7 +82,7 @@ in
       default = null;
       description = ''
         Path to the manifest TOML file to import.
-        When left as null, uses flox.manifest.file if available.
+        When left as null, uses pkgflow.manifest.file if available.
       '';
       example = lib.literalExpression "./my-project/.flox/env/manifest.toml";
     };
@@ -119,12 +119,12 @@ in
 
   config = lib.mkIf cfg.enable (
     let
-      # Use manifestFile if set, otherwise fall back to flox.manifest.file
+      # Use manifestFile if set, otherwise fall back to pkgflow.manifest.file
       actualManifestFile =
         if cfg.manifestFile != null then
           cfg.manifestFile
         else
-          config.flox.manifest.file or null;
+          config.pkgflow.manifest.file or null;
 
       manifestCfg = cfg // { manifestFile = actualManifestFile; };
     in

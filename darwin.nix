@@ -1,25 +1,25 @@
-# Darwin/macOS module for converting Flox manifest to Homebrew packages
+# Darwin/macOS module for converting package manifests to Homebrew packages
 { config, lib, ... }:
 
 let
-  cfg = config.flox.homebrewManifest;
+  cfg = config.pkgflow.homebrewManifest;
 
   defaultMappingFile = ./config/mapping.toml;
 in
 {
-  options.flox.homebrewManifest = {
+  options.pkgflow.homebrewManifest = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Enable automatic Homebrew package installation from Flox manifest.";
+      description = "Enable automatic Homebrew package installation from package manifest.";
     };
 
     manifestFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
       description = ''
-        Path to the Flox-style manifest that describes desired packages.
-        When left as null, uses flox.manifest.file if available.
+        Path to the package manifest that describes desired packages.
+        When left as null, uses pkgflow.manifest.file if available.
       '';
     };
 
@@ -32,12 +32,12 @@ in
 
   config = lib.mkIf cfg.enable (
     let
-      # Use manifestFile if set, otherwise fall back to flox.manifest.file
+      # Use manifestFile if set, otherwise fall back to pkgflow.manifest.file
       actualManifestFile =
         if cfg.manifestFile != null then
           cfg.manifestFile
         else
-          config.flox.manifest.file or null;
+          config.pkgflow.manifest.file or null;
 
       manifest =
         if actualManifestFile != null then

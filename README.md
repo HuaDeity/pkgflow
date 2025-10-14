@@ -1,6 +1,6 @@
-# Flox Manifest Nix Modules
+# pkgflow
 
-Nix modules for automatically installing packages from [Flox](https://flox.dev) manifest files.
+Universal package manifest transformer for Nix. Transform between Flox manifests, Nix packages, and Homebrew (with more formats coming soon).
 
 ## Features
 
@@ -11,6 +11,7 @@ Nix modules for automatically installing packages from [Flox](https://flox.dev) 
 - 🔄 **Flake package resolution** - Support for flake-based packages in manifests
 - 🎯 **System filtering** - Optionally filter packages by compatible systems
 - ⚙️ **Flexible configuration** - Multiple ways to specify manifest files
+- 🚀 **Future-ready** - Designed for multi-directional format transformation
 
 ## Installation
 
@@ -24,17 +25,17 @@ Add to your `flake.nix`:
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     home-manager.url = "github:nix-community/home-manager";
 
-    flox-manifest.url = "github:yourusername/flox-manifest-nix";
-    flox-manifest.inputs.nixpkgs.follows = "nixpkgs";
+    pkgflow.url = "github:HuaDeity/pkgflow";
+    pkgflow.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { nixpkgs, home-manager, flox-manifest, ... }: {
+  outputs = { nixpkgs, home-manager, pkgflow, ... }: {
     # Home-manager configuration
     homeConfigurations."user@host" = home-manager.lib.homeManagerConfiguration {
       modules = [
-        flox-manifest.homeModules.default
+        pkgflow.homeModules.default
         {
-          flox.manifestPackages = {
+          pkgflow.manifestPackages = {
             enable = true;
             manifestFile = ./path/to/manifest.toml;
           };
@@ -45,9 +46,9 @@ Add to your `flake.nix`:
     # NixOS configuration
     nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
       modules = [
-        flox-manifest.nixosModules.default
+        pkgflow.nixosModules.default
         {
-          flox.manifestPackages = {
+          pkgflow.manifestPackages = {
             enable = true;
             manifestFile = ./path/to/manifest.toml;
             output = "system";
@@ -64,15 +65,15 @@ Add to your `flake.nix`:
 ```nix
 { pkgs, ... }:
 let
-  flox-manifest = builtins.fetchGit {
-    url = "https://github.com/yourusername/flox-manifest-nix";
+  pkgflow = builtins.fetchGit {
+    url = "https://github.com/HuaDeity/pkgflow";
     ref = "main";
   };
 in
 {
-  imports = [ "${flox-manifest}/default.nix" ];
+  imports = [ "${pkgflow}/default.nix" ];
 
-  flox.manifestPackages = {
+  pkgflow.manifestPackages = {
     enable = true;
     manifestFile = ./manifest.toml;
   };
@@ -85,7 +86,7 @@ in
 
 ```nix
 {
-  flox.manifestPackages = {
+  pkgflow.manifestPackages = {
     enable = true;
     manifestFile = ./my-project/.flox/env/manifest.toml;
   };
@@ -97,7 +98,7 @@ in
 ```nix
 { inputs, ... }:
 {
-  flox.manifestPackages = {
+  pkgflow.manifestPackages = {
     enable = true;
     manifestFile = ./manifest.toml;
     flakeInputs = inputs;  # Pass flake inputs for flake package resolution
@@ -109,7 +110,7 @@ in
 
 ```nix
 {
-  flox.manifestPackages = {
+  pkgflow.manifestPackages = {
     enable = true;
     manifestFile = ./manifest.toml;
     output = "system";  # Install to environment.systemPackages
@@ -123,11 +124,11 @@ Set a global default manifest path:
 
 ```nix
 {
-  flox.manifest.file = ./default/.flox/env/manifest.toml;
+  pkgflow.manifest.file = ./default/.flox/env/manifest.toml;
 
-  flox.manifestPackages = {
+  pkgflow.manifestPackages = {
     enable = true;
-    # Will use flox.manifest.file
+    # Will use pkgflow.manifest.file
   };
 }
 ```
@@ -138,7 +139,7 @@ For nix-darwin users who want to convert Nix packages to Homebrew:
 
 ```nix
 {
-  flox.homebrewManifest = {
+  pkgflow.homebrewManifest = {
     enable = true;
     manifestFile = ./manifest.toml;
   };
@@ -147,7 +148,7 @@ For nix-darwin users who want to convert Nix packages to Homebrew:
 
 ## Configuration Options
 
-### `flox.manifestPackages`
+### `pkgflow.manifestPackages`
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -157,7 +158,7 @@ For nix-darwin users who want to convert Nix packages to Homebrew:
 | `requireSystemMatch` | bool | `false` | Only install packages matching current system |
 | `output` | enum | `"home"` | Where to install: `"home"` or `"system"` |
 
-### `flox.homebrewManifest` (Darwin only)
+### `pkgflow.homebrewManifest` (Darwin only)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -165,7 +166,7 @@ For nix-darwin users who want to convert Nix packages to Homebrew:
 | `manifestFile` | path | `null` | Path to manifest.toml file |
 | `mappingFile` | path | `./config/mapping.toml` | Nix → Homebrew mapping file |
 
-### `flox.manifest`
+### `pkgflow.manifest`
 
 | Option | Type | Description |
 |--------|------|-------------|
@@ -173,7 +174,7 @@ For nix-darwin users who want to convert Nix packages to Homebrew:
 
 ## Manifest Format
 
-This module reads standard Flox `manifest.toml` files:
+This module currently reads standard Flox `manifest.toml` files:
 
 ```toml
 version = 1
@@ -202,11 +203,19 @@ See the [examples/](./examples/) directory for complete configurations:
 
 ## How It Works
 
-1. Reads the Flox `manifest.toml` file
+1. Reads the Flox `manifest.toml` file (or other supported formats)
 2. Parses the `[install]` section for package definitions
 3. Resolves packages from nixpkgs or flake inputs
 4. Filters by system compatibility (if enabled)
 5. Installs to `home.packages` or `environment.systemPackages`
+
+## Roadmap
+
+- 🔄 **CLI tool** - Convert between formats: `pkgflow convert manifest.toml --to brewfile`
+- 📝 **Brewfile support** - Direct Brewfile to Nix conversion
+- 📦 **APT/DNF support** - Support for Debian/RedHat package lists
+- 🔀 **Bi-directional** - Convert from Nix to other formats
+- 🎯 **Custom formats** - Plugin system for custom manifest formats
 
 ## Limitations
 
@@ -216,12 +225,14 @@ See the [examples/](./examples/) directory for complete configurations:
 
 ## Contributing
 
-Contributions welcome! Please open an issue or PR.
+Contributions welcome! Please open an issue or PR on [GitHub](https://github.com/HuaDeity/pkgflow).
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License - See [LICENSE](./LICENSE) file for details.
 
 ## Credits
 
-Created for use with [Flox](https://flox.dev) manifest files in Nix/NixOS environments.
+Created by [HuaDeity](https://github.com/HuaDeity) for universal package manifest management in Nix/NixOS environments.
+
+Works great with [Flox](https://flox.dev) manifest files!

@@ -1,5 +1,5 @@
 {
-  description = "Nix modules for managing packages from Flox manifests";
+  description = "pkgflow - Universal package manifest transformer for Nix";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
