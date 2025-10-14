@@ -1,0 +1,40 @@
+[[package]]
+nix = "bat-extras.core"
+brew = "bat-extras"
+
+[[package]]
+nix = "claude-code"
+brew = "claude-code"
+type = "cask"
+
+[[package]]
+nix = "delta"
+brew = "git-delta"
+
+# [[package]]
+# nix = "github:helix-editor/helix"
+# brew = "helix"
+# type = "formula"
+# args = ["HEAD"]
+
+[[package]]
+nix = "jujutsu"
+brew = "jj"
+
+[[package]]
+nix = "github:nix-community/neovim-nightly-overlay"
+brew = "neovim"
+type = "formula"
+args = ["HEAD"]
+
+[[package]]
+nix = "nixfmt-rfc-style"
+brew = "nixfmt"
+
+[[package]]
+nix = "nodejs"
+brew = "node"
+
+[[package]]
+nix = "tree-sitter"
+brew = "tree-sitter-cli"
