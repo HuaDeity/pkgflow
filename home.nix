@@ -17,11 +17,17 @@ let
 
       packages = manifest.install or { };
 
-      # Simplified system matching logic
+      # System matching logic
+      # When requireSystemMatch = false: Include all packages (ignore systems attribute)
+      # When requireSystemMatch = true: Only include packages that explicitly list current system
       systemMatches = attrs:
-        !manifestCfg.requireSystemMatch
-        || !(attrs ? systems)
-        || lib.elem pkgs.system attrs.systems;
+        if !manifestCfg.requireSystemMatch then
+          true  # Include all packages when requireSystemMatch is false
+        else
+          # When requireSystemMatch is true, only include if:
+          # 1. Package has systems attribute AND
+          # 2. Current system is in the list
+          (attrs ? systems) && (lib.elem pkgs.system attrs.systems);
 
       systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
 
@@ -81,8 +87,12 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Require package entries to list the current system under `systems`.
-        When disabled, entries without a systems list are always included.
+        Control system-based package filtering behavior.
+
+        When false (default): All packages are included regardless of systems attribute.
+        When true: Only packages that have a systems attribute listing the current system are included.
+
+        This is useful for ensuring packages are only installed on explicitly supported platforms.
       '';
     };
   };
