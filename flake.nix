@@ -11,10 +11,8 @@
       # Shared module (just defines options, no imports)
       sharedModules.default = ./shared.nix;
 
-      # Home-manager module (for home.packages)
-      homeModules.default = import ./home.nix { _outputTarget = "home"; };
-
-      systemModules.default = import ./home.nix { _outputTarget = "system"; };
+      # Unified nix module (auto-detects home-manager vs system context)
+      nixModules.default = ./home.nix;
 
       # Homebrew module (for Darwin homebrew.brews/casks)
       brewModules.default = ./darwin.nix;

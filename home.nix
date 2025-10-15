@@ -84,15 +84,6 @@ in
         When disabled, entries without a systems list are always included.
       '';
     };
-
-    _outputTarget = lib.mkOption {
-      type = lib.types.enum [ "home" "system" ];
-      internal = true;
-      description = ''
-        Internal option set by homeModules or systemModules.
-        Determines whether packages install to home.packages or environment.systemPackages.
-      '';
-    };
   };
 
   config = lib.mkIf cfg.enable (
@@ -155,11 +146,13 @@ in
         ];
       }
 
-      # Install packages based on _outputTarget
-      (lib.optionalAttrs (cfg._outputTarget == "home") {
+      # Install packages based on context detection
+      # If home.packages exists, use it (home-manager context)
+      # If environment.systemPackages exists, use it (NixOS/Darwin context)
+      (lib.optionalAttrs (config ? home) {
         home.packages = processManifest manifestCfg;
       })
-      (lib.optionalAttrs (cfg._outputTarget == "system") {
+      (lib.optionalAttrs (config ? environment) {
         environment.systemPackages = processManifest manifestCfg;
       })
     ]
