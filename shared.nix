@@ -14,7 +14,7 @@
     };
 
     flakeInputs = lib.mkOption {
-      type = lib.types.nullOr lib.types.attrs;
+      type = lib.types.unspecified;
       default = null;
       description = ''
         Global flake inputs to use for resolving flake-based packages.
