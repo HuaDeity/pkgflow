@@ -58,15 +58,6 @@
   # };
 
   # ========================================
-  # Alternative: Strategy 3 - Quick Start
-  # ========================================
-  # Auto-detect manifest and use Nix (no Homebrew)
-  #
-  # Uncomment below and comment out Strategy 1:
-
-  # pkgflow.enable = true;
-
-  # ========================================
   # Advanced: Custom Homebrew Mapping
   # ========================================
   # Use a custom Nix → Homebrew mapping file

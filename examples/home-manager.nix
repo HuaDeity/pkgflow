@@ -10,24 +10,24 @@
     inputs.pkgflow.homeModules.default
   ];
 
-  # Option 1: Quick start with smart defaults (auto-detects manifest.toml)
-  pkgflow.enable = true;
-  pkgflow.manifest.flakeInputs = inputs;  # For flake package support
+  # Recommended: Set global configuration
+  pkgflow.manifest = {
+    file = ./my-project/.flox/env/manifest.toml;
+    flakeInputs = inputs;  # For flake package support
+  };
 
-  # Option 2: Manual configuration with full control
+  # Enable package installation to home.packages
+  pkgflow.manifestPackages = {
+    enable = true;
+    # output = "home";  # Default - installs to home.packages
+  };
+
+  # Alternative: Direct configuration without global settings
   # pkgflow.manifestPackages = {
   #   enable = true;
-  #   manifestFile = ./my-project/.flox/env/manifest.toml;
+  #   manifestFile = ./manifest.toml;
   #   flakeInputs = inputs;
-  #   output = "home";  # Install to home.packages
-  # };
-
-  # Option 3: Global manifest path with override
-  # pkgflow.manifest.file = ./default-manifest.toml;
-  # pkgflow.manifestPackages = {
-  #   enable = true;
-  #   # manifestFile = ./override.toml;  # Optional override
-  #   # requireSystemMatch = true;       # Strict system filtering
+  #   requireSystemMatch = true;  # Optional: strict system filtering
   # };
 
   # Rest of your home-manager configuration

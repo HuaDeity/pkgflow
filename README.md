@@ -87,22 +87,19 @@ in
 
 ## Quick Start
 
-The simplest way to use pkgflow:
-
 ```nix
 { inputs, ... }:
 {
   imports = [ inputs.pkgflow.homeModules.default ];
 
-  # One-line setup with smart defaults
-  pkgflow.enable = true;
-
-  # Or configure manually
-  pkgflow.manifestPackages = {
-    enable = true;
-    manifestFile = ./manifest.toml;
-    flakeInputs = inputs;  # For flake package support
+  # Set global manifest path and flake inputs (recommended)
+  pkgflow.manifest = {
+    file = ./manifest.toml;
+    flakeInputs = inputs;
   };
+
+  # Enable package installation
+  pkgflow.manifestPackages.enable = true;
 }
 ```
 
@@ -274,16 +271,10 @@ This design prevents duplicate installations when using both modules together.
 
 ### `pkgflow.manifest`
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `file` | path | Global default manifest path |
-| `flakeInputs` | attrs | Global flake inputs (shared across modules) |
-
-### `pkgflow` (Convenience)
-
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enable` | bool | `false` | Enable pkgflow with smart defaults (auto-detects manifest files) |
+| `file` | path | `null` | Global default manifest path (used by all modules) |
+| `flakeInputs` | attrs | `null` | Global flake inputs (shared across modules) |
 
 ## Manifest Format
 
