@@ -1,5 +1,5 @@
 # Home-manager module for installing packages from package manifests
-{ config, lib, pkgs, outputTarget ? "auto", ... }:
+{ config, lib, pkgs, ... }:
 
 let
   cfg = config.pkgflow.manifestPackages;
@@ -84,6 +84,15 @@ in
         When disabled, entries without a systems list are always included.
       '';
     };
+
+    _outputTarget = lib.mkOption {
+      type = lib.types.enum [ "home" "system" ];
+      internal = true;
+      description = ''
+        Internal option set by homeModules or systemModules.
+        Determines whether packages install to home.packages or environment.systemPackages.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable (
@@ -146,11 +155,11 @@ in
         ];
       }
 
-      # Install packages based on outputTarget
-      (lib.optionalAttrs (outputTarget == "home") {
+      # Install packages based on _outputTarget
+      (lib.optionalAttrs (cfg._outputTarget == "home") {
         home.packages = processManifest manifestCfg;
       })
-      (lib.optionalAttrs (outputTarget == "system") {
+      (lib.optionalAttrs (cfg._outputTarget == "system") {
         environment.systemPackages = processManifest manifestCfg;
       })
     ]

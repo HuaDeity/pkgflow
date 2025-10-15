@@ -12,16 +12,16 @@
     # Home-manager module (for home.packages)
     homeModules.default = {
       imports = [
-        { _module.args.outputTarget = "home"; }
         ./home.nix
+        { config.pkgflow.manifestPackages._outputTarget = "home"; }
       ];
     };
 
     # System module (for NixOS/Darwin environment.systemPackages)
     systemModules.default = {
       imports = [
-        { _module.args.outputTarget = "system"; }
         ./home.nix
+        { config.pkgflow.manifestPackages._outputTarget = "system"; }
       ];
     };
 
