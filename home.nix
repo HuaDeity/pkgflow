@@ -147,10 +147,10 @@ in
       }
 
       # Install packages based on outputTarget
-      (lib.mkIf (outputTarget == "home") {
+      (lib.optionalAttrs (outputTarget == "home") {
         home.packages = processManifest manifestCfg;
       })
-      (lib.mkIf (outputTarget == "system") {
+      (lib.optionalAttrs (outputTarget == "system") {
         environment.systemPackages = processManifest manifestCfg;
       })
     ]
