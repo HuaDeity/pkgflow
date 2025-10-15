@@ -32,12 +32,20 @@ in
 
   config = lib.mkIf cfg.enable (
     let
-      # Use manifestFile if set, otherwise fall back to pkgflow.manifest.file
+      # Check if shared options exist
+      hasSharedOptions = config.pkgflow ? manifest;
+
+      # Resolution order:
+      # 1. Module-specific manifestFile
+      # 2. Shared pkgflow.manifest.file (if exists)
+      # 3. null
       actualManifestFile =
         if cfg.manifestFile != null then
           cfg.manifestFile
+        else if hasSharedOptions && config.pkgflow.manifest.file != null then
+          config.pkgflow.manifest.file
         else
-          config.pkgflow.manifest.file or null;
+          null;
 
       manifest =
         if actualManifestFile != null then

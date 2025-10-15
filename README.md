@@ -43,10 +43,10 @@ Add to your `flake.nix`:
       ];
     };
 
-    # NixOS configuration
+    # NixOS/nix-darwin configuration
     nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
       modules = [
-        pkgflow.nixosModules.default
+        pkgflow.systemModules.default
         {
           pkgflow.manifestPackages = {
             enable = true;
@@ -85,21 +85,100 @@ in
 
 </details>
 
+## Module Structure
+
+pkgflow provides 4 simple, independent module outputs:
+
+| Module | Use For | Required? |
+|--------|---------|-----------|
+| `sharedModules.default` | Shared options (`pkgflow.manifest.*`) | Optional - for convenience |
+| `homeModules.default` | Home-manager (`home.packages`) | ✅ Required for home-manager |
+| `systemModules.default` | NixOS/Darwin (`environment.systemPackages`) | ✅ Required for system |
+| `brewModules.default` | Darwin Homebrew (`homebrew.brews`/`casks`) | Optional - for Homebrew |
+
+**Each module works independently** - you don't need to import `sharedModules` unless you want to use global `pkgflow.manifest.*` options.
+
 ## Quick Start
 
+### For Home-Manager
+
+**Option 1: With shared options (recommended)**
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.pkgflow.homeModules.default ];
+  imports = [
+    inputs.pkgflow.sharedModules.default  # Optional: for global config
+    inputs.pkgflow.homeModules.default
+  ];
 
-  # Set global manifest path and flake inputs (recommended)
   pkgflow.manifest = {
     file = ./manifest.toml;
     flakeInputs = inputs;
   };
 
-  # Enable package installation
   pkgflow.manifestPackages.enable = true;
+}
+```
+
+**Option 2: Standalone (no shared module)**
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.pkgflow.homeModules.default ];
+
+  pkgflow.manifestPackages = {
+    enable = true;
+    manifestFile = ./manifest.toml;
+    flakeInputs = inputs;
+  };
+}
+```
+
+### For NixOS
+
+```nix
+{ inputs, ... }:
+{
+  imports = [
+    inputs.pkgflow.sharedModules.default
+    inputs.pkgflow.systemModules.default
+  ];
+
+  pkgflow.manifest = {
+    file = ./manifest.toml;
+    flakeInputs = inputs;
+  };
+
+  pkgflow.manifestPackages.enable = true;
+  # Automatically installs to environment.systemPackages
+}
+```
+
+### For nix-darwin (with Homebrew)
+
+```nix
+{ inputs, ... }:
+{
+  imports = [
+    inputs.pkgflow.sharedModules.default
+    inputs.pkgflow.systemModules.default  # For Nix packages
+    inputs.pkgflow.brewModules.default    # For Homebrew
+  ];
+
+  pkgflow.manifest = {
+    file = ./manifest.toml;
+    flakeInputs = inputs;
+  };
+
+  # Install Nix packages (only those WITH 'systems' attribute)
+  # Automatically installs to environment.systemPackages
+  pkgflow.manifestPackages = {
+    enable = true;
+    requireSystemMatch = true;
+  };
+
+  # Install Homebrew packages (only those WITHOUT 'systems' attribute)
+  pkgflow.homebrewManifest.enable = true;
 }
 ```
 
@@ -259,7 +338,8 @@ This design prevents duplicate installations when using both modules together.
 | `manifestFile` | path | `null` | Path to manifest.toml file |
 | `flakeInputs` | attrs | `null` | Flake inputs for resolving flake packages |
 | `requireSystemMatch` | bool | `false` | Only install packages matching current system |
-| `output` | enum | `"home"` | Where to install: `"home"` or `"system"` |
+
+**Note**: Output destination is automatic - `homeModules` installs to `home.packages`, `systemModules` installs to `environment.systemPackages`.
 
 ### `pkgflow.homebrewManifest` (Darwin only)
 

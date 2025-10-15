@@ -1,11 +1,8 @@
 # Home-manager module for installing packages from package manifests
-{ config, lib, pkgs, options, ... }:
+{ config, lib, pkgs, outputTarget ? "auto", ... }:
 
 let
   cfg = config.pkgflow.manifestPackages;
-
-  # Check if we're in a system context (NixOS/Darwin) or home-manager context
-  hasSystemPackages = options ? environment.systemPackages;
 
   processManifest = manifestCfg:
     let
@@ -70,11 +67,11 @@ in
 
     flakeInputs = lib.mkOption {
       type = lib.types.unspecified;
-      default = config.pkgflow.manifest.flakeInputs or null;
+      default = null;
       description = ''
         Flake inputs to use for resolving flake-based packages in the manifest.
         Pass your flake's inputs attribute here to enable flake package resolution.
-        Falls back to pkgflow.manifest.flakeInputs if not set.
+        Falls back to pkgflow.manifest.flakeInputs if available.
       '';
       example = lib.literalExpression "inputs";
     };
@@ -87,28 +84,41 @@ in
         When disabled, entries without a systems list are always included.
       '';
     };
-
-    output = lib.mkOption {
-      type = lib.types.enum [ "home" "system" ];
-      default = "home";
-      description = ''
-        Where to install packages:
-        - "home": Install to home.packages (home-manager)
-        - "system": Install to environment.systemPackages (NixOS/Darwin system config)
-      '';
-    };
   };
 
   config = lib.mkIf cfg.enable (
     let
-      # Use manifestFile if set, otherwise fall back to pkgflow.manifest.file
+      # Check if shared options exist
+      hasSharedOptions = config.pkgflow ? manifest;
+
+      # Resolution order:
+      # 1. Module-specific manifestFile
+      # 2. Shared pkgflow.manifest.file (if exists)
+      # 3. null
       actualManifestFile =
         if cfg.manifestFile != null then
           cfg.manifestFile
+        else if hasSharedOptions && config.pkgflow.manifest.file != null then
+          config.pkgflow.manifest.file
         else
-          config.pkgflow.manifest.file or null;
+          null;
 
-      manifestCfg = cfg // { manifestFile = actualManifestFile; };
+      # Resolution order for flakeInputs:
+      # 1. Module-specific flakeInputs
+      # 2. Shared pkgflow.manifest.flakeInputs (if exists)
+      # 3. null
+      actualFlakeInputs =
+        if cfg.flakeInputs != null then
+          cfg.flakeInputs
+        else if hasSharedOptions && config.pkgflow.manifest.flakeInputs != null then
+          config.pkgflow.manifest.flakeInputs
+        else
+          null;
+
+      manifestCfg = cfg // {
+        manifestFile = actualManifestFile;
+        flakeInputs = actualFlakeInputs;
+      };
     in
     lib.mkMerge [
       # Validation assertions
@@ -118,9 +128,10 @@ in
             assertion = actualManifestFile != null;
             message = ''
               pkgflow.manifestPackages: No manifest file specified.
+
               Please set either:
-              - pkgflow.manifestPackages.manifestFile, or
-              - pkgflow.manifest.file
+              1. pkgflow.manifestPackages.manifestFile = ./path/to/manifest.toml;
+              2. Import sharedModules and set: pkgflow.manifest.file = ./path/to/manifest.toml;
             '';
           }
           {
@@ -135,15 +146,13 @@ in
         ];
       }
 
-      # Install packages
-      (lib.mkIf (cfg.output == "home") {
+      # Install packages based on outputTarget
+      (lib.mkIf (outputTarget == "home") {
         home.packages = processManifest manifestCfg;
       })
-      (lib.optionalAttrs hasSystemPackages (
-        lib.mkIf (cfg.output == "system") {
-          environment.systemPackages = processManifest manifestCfg;
-        }
-      ))
+      (lib.mkIf (outputTarget == "system") {
+        environment.systemPackages = processManifest manifestCfg;
+      })
     ]
   );
 }
