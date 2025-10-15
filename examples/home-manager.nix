@@ -1,6 +1,6 @@
 # Example: Home-manager standalone configuration
 #
-# This example shows how to use pkgflow-nix with home-manager
+# This example shows how to use pkgflow with home-manager
 # to automatically install packages from a Flox manifest.
 
 { inputs, pkgs, ... }:
@@ -10,23 +10,25 @@
     inputs.pkgflow.homeModules.default
   ];
 
-  # Set global manifest path (optional)
-  pkgflow.manifest.file = ./my-project/.flox/env/manifest.toml;
+  # Option 1: Quick start with smart defaults (auto-detects manifest.toml)
+  pkgflow.enable = true;
+  pkgflow.manifest.flakeInputs = inputs;  # For flake package support
 
-  # Enable manifest package installation
-  pkgflow.manifestPackages = {
-    enable = true;
-    # manifestFile = ./custom-manifest.toml;  # Override global path if needed
+  # Option 2: Manual configuration with full control
+  # pkgflow.manifestPackages = {
+  #   enable = true;
+  #   manifestFile = ./my-project/.flox/env/manifest.toml;
+  #   flakeInputs = inputs;
+  #   output = "home";  # Install to home.packages
+  # };
 
-    # Pass flake inputs to resolve flake-based packages
-    flakeInputs = inputs;
-
-    # Only install packages that list this system in their 'systems' array
-    # requireSystemMatch = true;
-
-    # Where to install packages (home or system)
-    output = "home";  # Install to home.packages
-  };
+  # Option 3: Global manifest path with override
+  # pkgflow.manifest.file = ./default-manifest.toml;
+  # pkgflow.manifestPackages = {
+  #   enable = true;
+  #   # manifestFile = ./override.toml;  # Optional override
+  #   # requireSystemMatch = true;       # Strict system filtering
+  # };
 
   # Rest of your home-manager configuration
   home = {

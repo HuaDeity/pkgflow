@@ -49,15 +49,11 @@ in
 
       originalPackages = manifest.install or { };
 
-      packages = lib.filterAttrs (name: attrs: !(attrs ? systems)) originalPackages;
+      # Filter: Only packages WITHOUT systems attribute go to Homebrew
+      # This prevents duplicate installation (Nix + Homebrew)
+      packages = lib.filterAttrs (_: attrs: !(attrs ? systems)) originalPackages;
 
-      normalizePath =
-        pkgPath:
-        if builtins.isList pkgPath then
-          builtins.concatStringsSep "." pkgPath
-        else
-          pkgPath;
-
+      # Build Nix → Homebrew lookup table
       nixToBrew = lib.listToAttrs (
         lib.map (entry: {
           name = entry.nix;
@@ -65,32 +61,40 @@ in
         }) mapping.package
       );
 
-      converted = lib.mapAttrsToList (
-        _: attrs:
+      # Convert package to Homebrew format
+      convertToBrew = _: attrs:
         let
-          lookupKey = attrs.flake or (normalizePath attrs.pkg-path);
-          brewInfo =
-            nixToBrew.${lookupKey} or {
-              brew = lookupKey;
-              type = "formula";
-            };
-        in
-        brewInfo
-      ) packages;
+          # Normalize package path for lookup
+          lookupKey = attrs.flake or (
+            if builtins.isList attrs.pkg-path
+            then builtins.concatStringsSep "." attrs.pkg-path
+            else attrs.pkg-path
+          );
 
-      formatBrew =
-        p:
+          # Get mapping or use package name as fallback
+          brewInfo = nixToBrew.${lookupKey} or {
+            brew = lookupKey;
+            type = "formula";
+          };
+        in
+        brewInfo;
+
+      converted = lib.mapAttrsToList convertToBrew packages;
+
+      # Split into formulas and casks
+      formulas = lib.filter (p: (p.type or "formula") == "formula") converted;
+      casks = lib.filter (p: (p.type or "") == "cask") converted;
+
+      # Format brew entries (handle args)
+      formatBrew = p:
         if p ? args then
-          {
-            name = p.brew;
-            args = p.args;
-          }
+          { name = p.brew; args = p.args; }
         else
           p.brew;
     in
     {
-      homebrew.brews = lib.map formatBrew (lib.filter (p: (p.type or "formula") == "formula") converted);
-      homebrew.casks = lib.map (p: p.brew) (lib.filter (p: p ? type && p.type == "cask") converted);
+      homebrew.brews = lib.map formatBrew formulas;
+      homebrew.casks = lib.map (p: p.brew) casks;
     }
   );
 }

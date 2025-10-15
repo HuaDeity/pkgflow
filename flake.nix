@@ -6,28 +6,17 @@
   };
 
   outputs = { self, nixpkgs }: {
-    # Home-manager modules
-    homeModules = {
-      default = ./default.nix;
-      manifestPackages = ./home.nix;
-      shared = ./shared.nix;
-    };
-
-    # NixOS modules
+    # Unified module set (works across all platforms)
     nixosModules = {
       default = ./default.nix;
       manifestPackages = ./home.nix;
-      shared = ./shared.nix;
-    };
-
-    # Darwin modules
-    darwinModules = {
-      default = import ./darwin-default.nix;
       homebrewManifest = ./darwin.nix;
       shared = ./shared.nix;
     };
 
-    # Legacy attribute for backward compatibility
-    homeManagerModules = self.homeModules;
+    # Aliases for convenience and backward compatibility
+    homeModules = self.nixosModules;
+    darwinModules = self.nixosModules;
+    homeManagerModules = self.nixosModules;
   };
 }

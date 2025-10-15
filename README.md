@@ -62,6 +62,9 @@ Add to your `flake.nix`:
 
 ### Direct Import (Without Flakes)
 
+<details>
+<summary>Click to expand non-flake installation method</summary>
+
 ```nix
 { pkgs, ... }:
 let
@@ -76,6 +79,29 @@ in
   pkgflow.manifestPackages = {
     enable = true;
     manifestFile = ./manifest.toml;
+  };
+}
+```
+
+</details>
+
+## Quick Start
+
+The simplest way to use pkgflow:
+
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.pkgflow.homeModules.default ];
+
+  # One-line setup with smart defaults
+  pkgflow.enable = true;
+
+  # Or configure manually
+  pkgflow.manifestPackages = {
+    enable = true;
+    manifestFile = ./manifest.toml;
+    flakeInputs = inputs;  # For flake package support
   };
 }
 ```
@@ -133,18 +159,98 @@ Set a global default manifest path:
 }
 ```
 
-### Homebrew Integration (macOS)
+### macOS Configuration Strategies
 
-For nix-darwin users who want to convert Nix packages to Homebrew:
+On macOS (nix-darwin), you have two recommended approaches:
+
+#### Strategy 1: Homebrew-First (Recommended for macOS)
+
+**Use Case**: You want Homebrew for better macOS integration, Nix only for packages unavailable in Homebrew.
 
 ```nix
 {
-  pkgflow.homebrewManifest = {
+  pkgflow.manifest = {
+    file = ./manifest.toml;
+    flakeInputs = inputs;
+  };
+
+  # Install Homebrew packages (from packages WITHOUT systems attribute)
+  pkgflow.homebrewManifest.enable = true;
+
+  # Install Nix-exclusive packages (from packages WITH systems attribute)
+  pkgflow.manifestPackages = {
     enable = true;
-    manifestFile = ./manifest.toml;
+    requireSystemMatch = true;  # Only install if system explicitly listed
+    output = "system";
   };
 }
 ```
+
+**Manifest example:**
+```toml
+[install]
+# → Homebrew (no systems attribute)
+git.pkg-path = "git"
+node.pkg-path = "nodejs"
+neovim.pkg-path = "neovim"
+
+# → Nix only (has systems attribute)
+nixfmt-rfc-style.pkg-path = "nixfmt-rfc-style"
+nixfmt-rfc-style.systems = ["aarch64-darwin", "x86_64-linux"]
+
+# → Nix only (flake package)
+helix.flake = "github:helix-editor/helix"
+helix.systems = ["aarch64-darwin"]
+```
+
+**Result**:
+- ✅ Homebrew installs: git, node, neovim (native performance)
+- ✅ Nix installs: nixfmt-rfc-style, helix (unavailable in Homebrew)
+- ✅ No duplicate installations
+
+#### Strategy 2: Nix-Only
+
+**Use Case**: You want to use Nix for everything (same as Linux/NixOS).
+
+```nix
+{
+  pkgflow.manifestPackages = {
+    enable = true;
+    manifestFile = ./manifest.toml;
+    flakeInputs = inputs;
+    output = "system";
+    # No requireSystemMatch - install all packages via Nix
+  };
+}
+```
+
+**Manifest example:**
+```toml
+[install]
+# All installed via Nix
+git.pkg-path = "git"
+neovim.pkg-path = "neovim"
+nodejs.pkg-path = "nodejs"
+```
+
+**Result**:
+- ✅ Nix installs everything
+- ✅ Consistent with Linux/NixOS behavior
+- ✅ No Homebrew needed
+
+#### How It Works
+
+**Key Insight**: The `systems` attribute acts as a **Nix-exclusive marker** on macOS.
+
+**Nix Installation (`manifestPackages`):**
+- `requireSystemMatch = false` (default): Install all packages (like Linux)
+- `requireSystemMatch = true`: Only install packages where `systems` explicitly includes current system
+
+**Homebrew Installation (`homebrewManifest`):**
+- Packages **WITHOUT** `systems`: ✅ Converted to Homebrew
+- Packages **WITH** `systems`: ❌ Skipped (Nix-exclusive)
+
+This design prevents duplicate installations when using both modules together.
 
 ## Configuration Options
 
@@ -171,6 +277,13 @@ For nix-darwin users who want to convert Nix packages to Homebrew:
 | Option | Type | Description |
 |--------|------|-------------|
 | `file` | path | Global default manifest path |
+| `flakeInputs` | attrs | Global flake inputs (shared across modules) |
+
+### `pkgflow` (Convenience)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | bool | `false` | Enable pkgflow with smart defaults (auto-detects manifest files) |
 
 ## Manifest Format
 

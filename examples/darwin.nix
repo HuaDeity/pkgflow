@@ -1,7 +1,7 @@
-# Example: nix-darwin configuration with Homebrew
+# Example: nix-darwin configuration
 #
-# This example shows how to use pkgflow-nix on macOS with nix-darwin
-# to convert Nix packages to Homebrew formulae and casks.
+# This example shows recommended patterns for using pkgflow on macOS
+# with nix-darwin to manage packages via Nix and/or Homebrew.
 
 { inputs, config, pkgs, ... }:
 
@@ -10,21 +10,70 @@
     inputs.pkgflow.darwinModules.default
   ];
 
-  # Set global manifest path
-  pkgflow.manifest.file = ~/.config/flox/manifest.toml;
+  # Global configuration
+  pkgflow.manifest = {
+    file = ~/.config/flox/manifest.toml;
+    flakeInputs = inputs;
+  };
 
-  # Option 1: Install as Nix packages to system
+  # ========================================
+  # RECOMMENDED: Strategy 1 - Homebrew-First
+  # ========================================
+  # Use Homebrew for most packages, Nix only for packages unavailable in Homebrew
+  #
+  # In your manifest.toml:
+  # - Packages WITHOUT 'systems' → Installed via Homebrew
+  # - Packages WITH 'systems' → Installed via Nix
+  #
+  # Example manifest.toml:
+  #   [install]
+  #   git.pkg-path = "git"                    # → Homebrew
+  #   neovim.pkg-path = "neovim"              # → Homebrew
+  #
+  #   nixfmt.pkg-path = "nixfmt-rfc-style"    # → Nix
+  #   nixfmt.systems = ["aarch64-darwin"]
+  #
+  #   helix.flake = "github:helix-editor/helix"  # → Nix
+  #   helix.systems = ["aarch64-darwin"]
+
+  pkgflow.homebrewManifest.enable = true;
+
   pkgflow.manifestPackages = {
     enable = true;
-    flakeInputs = inputs;
+    requireSystemMatch = true;  # IMPORTANT: Only install if systems explicitly matches
     output = "system";
   };
 
-  # Option 2: Convert to Homebrew packages (alternative to above)
+  # ========================================
+  # Alternative: Strategy 2 - Nix-Only
+  # ========================================
+  # Use Nix for everything (same as Linux/NixOS behavior)
+  #
+  # Uncomment below and comment out Strategy 1:
+
+  # pkgflow.manifestPackages = {
+  #   enable = true;
+  #   output = "system";
+  #   # requireSystemMatch = false (default) - installs all packages via Nix
+  # };
+
+  # ========================================
+  # Alternative: Strategy 3 - Quick Start
+  # ========================================
+  # Auto-detect manifest and use Nix (no Homebrew)
+  #
+  # Uncomment below and comment out Strategy 1:
+
+  # pkgflow.enable = true;
+
+  # ========================================
+  # Advanced: Custom Homebrew Mapping
+  # ========================================
+  # Use a custom Nix → Homebrew mapping file
+
   # pkgflow.homebrewManifest = {
   #   enable = true;
-  #   # Custom mapping file if needed
-  #   # mappingFile = ./my-nix-to-brew-mapping.toml;
+  #   mappingFile = ./my-custom-mapping.toml;
   # };
 
   # Rest of your nix-darwin configuration

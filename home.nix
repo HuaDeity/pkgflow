@@ -19,53 +19,34 @@ let
 
       packages = manifest.install or { };
 
-      systemMatches =
-        attrs:
-        let
-          hasSystems = attrs ? systems;
-        in
-        if manifestCfg.requireSystemMatch then
-          hasSystems && lib.elem pkgs.system attrs.systems
-        else
-          (!hasSystems) || lib.elem pkgs.system attrs.systems;
+      # Simplified system matching logic
+      systemMatches = attrs:
+        !manifestCfg.requireSystemMatch
+        || !(attrs ? systems)
+        || lib.elem pkgs.system attrs.systems;
 
-      systemFilteredPackages = lib.filterAttrs (_: attrs: systemMatches attrs) packages;
+      systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
 
-      getPackage =
-        pkgPath:
-        let
-          parts =
-            if builtins.isList pkgPath then
-              pkgPath
-            else
-              lib.splitString "." pkgPath;
-        in
-        lib.attrByPath parts null pkgs;
-
-      regularPackages = lib.filterAttrs (_: attrs: !(attrs ? flake)) systemFilteredPackages;
-      regularList = lib.filter (pkg: pkg != null) (
-        lib.mapAttrsToList (_: attrs: getPackage attrs.pkg-path) regularPackages
-      );
-
-      # Note: Flake packages require access to flake inputs
-      # Users need to pass flake inputs to resolve these
-      flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
-
-      resolveFlakePackage =
-        name:
-        if manifestCfg.flakeInputs != null then
+      # Unified package resolution
+      resolvePackage = name: attrs:
+        if attrs ? flake then
+          # Flake package resolution
           lib.attrByPath
             [ name "packages" pkgs.system "default" ]
             null
-            manifestCfg.flakeInputs
+            (manifestCfg.flakeInputs or {})
         else
-          null;
+          # Regular nixpkgs package resolution
+          let
+            parts = if builtins.isList attrs.pkg-path
+                    then attrs.pkg-path
+                    else lib.splitString "." attrs.pkg-path;
+          in
+          lib.attrByPath parts null pkgs;
 
-      flakeList = lib.mapAttrsToList (name: _: resolveFlakePackage name) flakePackages;
-
-      resolvedPackages =
-        regularList
-        ++ lib.filter (pkg: pkg != null) flakeList;
+      resolvedPackages = lib.filter
+        (pkg: pkg != null)
+        (lib.mapAttrsToList resolvePackage systemFilteredPackages);
     in
     resolvedPackages;
 in
@@ -89,10 +70,11 @@ in
 
     flakeInputs = lib.mkOption {
       type = lib.types.nullOr lib.types.attrs;
-      default = null;
+      default = config.pkgflow.manifest.flakeInputs or null;
       description = ''
         Flake inputs to use for resolving flake-based packages in the manifest.
         Pass your flake's inputs attribute here to enable flake package resolution.
+        Falls back to pkgflow.manifest.flakeInputs if not set.
       '';
       example = lib.literalExpression "inputs";
     };
@@ -129,6 +111,31 @@ in
       manifestCfg = cfg // { manifestFile = actualManifestFile; };
     in
     lib.mkMerge [
+      # Validation assertions
+      {
+        assertions = [
+          {
+            assertion = actualManifestFile != null;
+            message = ''
+              pkgflow.manifestPackages: No manifest file specified.
+              Please set either:
+              - pkgflow.manifestPackages.manifestFile, or
+              - pkgflow.manifest.file
+            '';
+          }
+          {
+            assertion = actualManifestFile == null || builtins.pathExists (toString actualManifestFile);
+            message = ''
+              pkgflow.manifestPackages: Manifest file does not exist:
+              ${toString actualManifestFile}
+
+              Check that the path is correct and the file exists.
+            '';
+          }
+        ];
+      }
+
+      # Install packages
       (lib.mkIf (cfg.output == "home") {
         home.packages = processManifest manifestCfg;
       })
