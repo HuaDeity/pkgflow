@@ -1,5 +1,6 @@
-# Home-manager module for installing packages from package manifests
-{ config, lib, pkgs, ... }:
+# Unified module for installing packages from package manifests
+# Auto-detects home-manager vs system context
+{ config, lib, pkgs, options, ... }:
 
 let
   cfg = config.pkgflow.manifestPackages;
@@ -147,12 +148,12 @@ in
       }
 
       # Install packages based on context detection
-      # If home.packages exists, use it (home-manager context)
-      # If environment.systemPackages exists, use it (NixOS/Darwin context)
-      (lib.optionalAttrs (config ? home) {
+      # Check if home.packages option exists (home-manager context)
+      # Otherwise use environment.systemPackages (NixOS/Darwin context)
+      (lib.optionalAttrs (options ? home.packages) {
         home.packages = processManifest manifestCfg;
       })
-      (lib.optionalAttrs (config ? environment) {
+      (lib.optionalAttrs (!(options ? home.packages) && options ? environment.systemPackages) {
         environment.systemPackages = processManifest manifestCfg;
       })
     ]
