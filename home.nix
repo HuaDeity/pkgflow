@@ -154,6 +154,15 @@ in
             '';
           }
           {
+            assertion = actualManifestFile == null || builtins.pathExists (toString actualManifestFile);
+            message = ''
+              pkgflow.manifestPackages: Manifest file does not exist:
+              ${toString actualManifestFile}
+
+              Check that the path is correct and the file exists.
+            '';
+          }
+          {
             assertion = (options ? home.packages) || (options ? environment.systemPackages);
             message = ''
               pkgflow.manifestPackages: Cannot detect installation context.

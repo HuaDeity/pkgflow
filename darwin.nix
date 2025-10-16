@@ -128,6 +128,15 @@ in
             '';
           }
           {
+            assertion = actualManifestFile == null || builtins.pathExists (toString actualManifestFile);
+            message = ''
+              pkgflow.homebrewManifest: Manifest file does not exist:
+              ${toString actualManifestFile}
+
+              Check that the path is correct and the file exists.
+            '';
+          }
+          {
             assertion = builtins.pathExists (toString cfg.mappingFile);
             message = ''
               pkgflow.homebrewManifest: Mapping file does not exist:
