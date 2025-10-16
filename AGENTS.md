@@ -90,7 +90,6 @@ pkgflow.homebrewManifest.enable = true;
 pkgflow.manifestPackages = {
   enable = true;
   requireSystemMatch = true;  # IMPORTANT: Only install packages with explicit systems
-  output = "system";
 };
 ```
 
@@ -124,14 +123,13 @@ Use Nix for everything (same behavior as Linux):
 pkgflow.manifestPackages = {
   enable = true;
   # requireSystemMatch = false (default)
-  output = "system";
 };
 ```
 
 **Why this works:**
 - Same as NixOS/Linux behavior
 - No Homebrew needed
-- All packages installed via Nix regardless of `systems` attribute
+- All compatible packages install via Nix
 
 #### Why This Design?
 

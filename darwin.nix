@@ -100,9 +100,43 @@ in
         else
           p.brew;
     in
-    {
-      homebrew.brews = lib.map formatBrew formulas;
-      homebrew.casks = lib.map (p: p.brew) casks;
-    }
+    lib.mkMerge [
+      {
+        assertions = [
+          {
+            assertion = actualManifestFile != null;
+            message = ''
+              pkgflow.homebrewManifest: No manifest file specified.
+
+              Please set either:
+              1. pkgflow.homebrewManifest.manifestFile = ./path/to/manifest.toml;
+              2. Import sharedModules and set: pkgflow.manifest.file = ./path/to/manifest.toml;
+            '';
+          }
+          {
+            assertion = actualManifestFile == null || builtins.pathExists (toString actualManifestFile);
+            message = ''
+              pkgflow.homebrewManifest: Manifest file does not exist:
+              ${toString actualManifestFile}
+
+              Check that the path is correct and the file exists.
+            '';
+          }
+          {
+            assertion = builtins.pathExists (toString cfg.mappingFile);
+            message = ''
+              pkgflow.homebrewManifest: Mapping file does not exist:
+              ${toString cfg.mappingFile}
+
+              Check that the path is correct and the file exists.
+            '';
+          }
+        ];
+      }
+      {
+        homebrew.brews = lib.map formatBrew formulas;
+        homebrew.casks = lib.map (p: p.brew) casks;
+      }
+    ]
   );
 }

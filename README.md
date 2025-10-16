@@ -51,7 +51,7 @@ Add to your `flake.nix`:
           pkgflow.manifestPackages = {
             enable = true;
             manifestFile = ./path/to/manifest.toml;
-            output = "system";
+            # Automatically installs to environment.systemPackages in system contexts
           };
         }
       ];
@@ -215,7 +215,7 @@ pkgflow provides 4 simple, independent module outputs:
   pkgflow.manifestPackages = {
     enable = true;
     manifestFile = ./manifest.toml;
-    output = "system";  # Install to environment.systemPackages
+    # Automatically installs to environment.systemPackages in system contexts
   };
 }
 ```
@@ -257,7 +257,6 @@ On macOS (nix-darwin), you have two recommended approaches:
   pkgflow.manifestPackages = {
     enable = true;
     requireSystemMatch = true;  # Only install if system explicitly listed
-    output = "system";
   };
 }
 ```
@@ -294,7 +293,6 @@ helix.systems = ["aarch64-darwin"]
     enable = true;
     manifestFile = ./manifest.toml;
     flakeInputs = inputs;
-    output = "system";
     # No requireSystemMatch - install all packages via Nix
   };
 }
@@ -310,7 +308,7 @@ nodejs.pkg-path = "nodejs"
 ```
 
 **Result**:
-- ✅ Nix installs everything
+- ✅ Nix installs all compatible packages
 - ✅ Consistent with Linux/NixOS behavior
 - ✅ No Homebrew needed
 
@@ -319,8 +317,8 @@ nodejs.pkg-path = "nodejs"
 **Key Insight**: The `systems` attribute acts as a **Nix-exclusive marker** on macOS.
 
 **Nix Installation (`manifestPackages`):**
-- `requireSystemMatch = false` (default): Install all packages (like Linux)
-- `requireSystemMatch = true`: Only install packages where `systems` explicitly includes current system
+- `requireSystemMatch = false` (default): Install packages without `systems`, plus any package whose `systems` list includes the current platform
+- `requireSystemMatch = true`: Install only packages that declare `systems` and include the current platform
 
 **Homebrew Installation (`homebrewManifest`):**
 - Packages **WITHOUT** `systems`: ✅ Converted to Homebrew

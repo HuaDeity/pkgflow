@@ -60,7 +60,7 @@
             enable = true;
             manifestFile = ./system-manifest.toml;
             flakeInputs = inputs;
-            output = "system";
+            # Installs to environment.systemPackages automatically
           };
 
           system.stateVersion = "24.05";

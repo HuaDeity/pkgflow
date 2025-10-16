@@ -32,7 +32,6 @@ This guide explains the recommended ways to use pkgflow on macOS with nix-darwin
   pkgflow.manifestPackages = {
     enable = true;
     requireSystemMatch = true;  # ⚠️ REQUIRED for this strategy
-    output = "system";
   };
 }
 ```
@@ -100,8 +99,7 @@ helix.systems = ["aarch64-darwin"]
     enable = true;
     manifestFile = ./manifest.toml;
     flakeInputs = inputs;
-    output = "system";
-    # requireSystemMatch = false (default) - installs all packages
+    # requireSystemMatch = false (default) - installs packages that match the current system or have no systems attribute
   };
 }
 ```
@@ -112,7 +110,7 @@ helix.systems = ["aarch64-darwin"]
 version = 1
 
 [install]
-# All packages installed via Nix (systems attribute optional)
+# All compatible packages installed via Nix (systems attribute optional)
 git.pkg-path = "git"
 neovim.pkg-path = "neovim"
 nodejs.pkg-path = "nodejs"
@@ -264,7 +262,6 @@ systemd.systems = ["x86_64-linux", "aarch64-linux"]
 pkgflow.manifestPackages = {
   enable = true;
   requireSystemMatch = true;  # Add this!
-  output = "system";
 };
 ```
 
@@ -332,7 +329,6 @@ pkgflow.homebrewManifest.enable = true;
 pkgflow.manifestPackages = {
   enable = true;
   requireSystemMatch = true;
-  output = "system";
 };
 ```
 

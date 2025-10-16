@@ -41,7 +41,6 @@
   pkgflow.manifestPackages = {
     enable = true;
     requireSystemMatch = true;  # IMPORTANT: Only install if systems explicitly matches
-    output = "system";
   };
 
   # ========================================
@@ -53,7 +52,6 @@
 
   # pkgflow.manifestPackages = {
   #   enable = true;
-  #   output = "system";
   #   # requireSystemMatch = false (default) - installs all packages via Nix
   # };
 

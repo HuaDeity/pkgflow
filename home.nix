@@ -18,16 +18,17 @@ let
       packages = manifest.install or { };
 
       # System matching logic
-      # When requireSystemMatch = false: Include all packages (ignore systems attribute)
-      # When requireSystemMatch = true: Only include packages that explicitly list current system
+      # Always respect systems attribute when present (don't install unsupported packages)
+      # requireSystemMatch only controls packages WITHOUT systems attribute:
+      #   - false: Include packages without systems attribute
+      #   - true: Exclude packages without systems attribute
       systemMatches = attrs:
-        if !manifestCfg.requireSystemMatch then
-          true  # Include all packages when requireSystemMatch is false
+        if attrs ? systems then
+          # If package has systems attribute, always check if current system is supported
+          lib.elem pkgs.system attrs.systems
         else
-          # When requireSystemMatch is true, only include if:
-          # 1. Package has systems attribute AND
-          # 2. Current system is in the list
-          (attrs ? systems) && (lib.elem pkgs.system attrs.systems);
+          # Package has no systems attribute - use requireSystemMatch to decide
+          !manifestCfg.requireSystemMatch;
 
       systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
 
@@ -87,12 +88,17 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Control system-based package filtering behavior.
+        Control how packages WITHOUT a systems attribute are handled.
+        Packages WITH a systems attribute are always filtered by the current system.
 
-        When false (default): All packages are included regardless of systems attribute.
-        When true: Only packages that have a systems attribute listing the current system are included.
+        When false (default): Install packages without systems attribute (assume compatible).
+        When true: Skip packages without systems attribute (only install explicitly marked packages).
 
-        This is useful for ensuring packages are only installed on explicitly supported platforms.
+        Examples:
+          - Package with systems = ["aarch64-darwin", "x86_64-linux"]:
+            Always checked against current system, regardless of this option.
+          - Package without systems attribute:
+            Installed when false, skipped when true.
       '';
     };
   };

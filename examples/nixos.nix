@@ -17,7 +17,7 @@
   pkgflow.manifestPackages = {
     enable = true;
     flakeInputs = inputs;
-    output = "system";  # Install to environment.systemPackages
+    # Installs to environment.systemPackages automatically
   };
 
   # Rest of your NixOS configuration
