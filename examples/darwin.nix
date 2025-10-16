@@ -7,14 +7,13 @@
 
 {
   imports = [
-    inputs.pkgflow.darwinModules.default
+    inputs.pkgflow.sharedModules.default
+    inputs.pkgflow.nixModules.default    # For Nix packages
+    inputs.pkgflow.brewModules.default   # For Homebrew packages
   ];
 
-  # Global configuration
-  pkgflow.manifest = {
-    file = ~/.config/flox/manifest.toml;
-    flakeInputs = inputs;
-  };
+  # Global manifest path
+  pkgflow.manifest.file = ~/.config/flox/manifest.toml;
 
   # ========================================
   # RECOMMENDED: Strategy 1 - Homebrew-First
@@ -36,34 +35,21 @@
   #   helix.flake = "github:helix-editor/helix"  # → Nix
   #   helix.systems = ["aarch64-darwin"]
 
-  pkgflow.homebrewManifest.enable = true;
-
-  pkgflow.manifestPackages = {
-    enable = true;
-    requireSystemMatch = true;  # IMPORTANT: Only install if systems explicitly matches
-  };
+  pkgflow.manifestPackages.requireSystemMatch = true;  # IMPORTANT: Only install if systems explicitly matches
 
   # ========================================
   # Alternative: Strategy 2 - Nix-Only
   # ========================================
   # Use Nix for everything (same as Linux/NixOS behavior)
   #
-  # Uncomment below and comment out Strategy 1:
-
-  # pkgflow.manifestPackages = {
-  #   enable = true;
-  #   # requireSystemMatch = false (default) - installs all packages via Nix
-  # };
+  # Remove brewModules.default from imports above and configure:
+  # pkgflow.manifestPackages.requireSystemMatch = false;  # Default - installs all packages via Nix
 
   # ========================================
   # Advanced: Custom Homebrew Mapping
   # ========================================
   # Use a custom Nix → Homebrew mapping file
-
-  # pkgflow.homebrewManifest = {
-  #   enable = true;
-  #   mappingFile = ./my-custom-mapping.toml;
-  # };
+  # pkgflow.homebrewManifest.mappingFile = ./my-custom-mapping.toml;
 
   # Rest of your nix-darwin configuration
   system.stateVersion = 6;

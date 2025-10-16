@@ -9,13 +9,11 @@ Universal package manifest transformer for Nix. Transform between Flox manifests
 - 🖥️ **NixOS/Darwin support** - Install to `environment.systemPackages`
 - 🍺 **Homebrew integration** - Convert Nix packages to Homebrew on macOS
 - 🔄 **Flake package resolution** - Support for flake-based packages in manifests
-- 🎯 **System filtering** - Optionally filter packages by compatible systems
-- ⚙️ **Flexible configuration** - Multiple ways to specify manifest files
-- 🚀 **Future-ready** - Designed for multi-directional format transformation
+- 🎯 **System filtering** - Smart filtering by compatible systems
+- 🚀 **Zero configuration** - Import and go, no `enable` switches needed
+- 🧠 **Context-aware** - Automatically detects home-manager vs system context
 
 ## Installation
-
-### As a Flake Input (Recommended)
 
 Add to your `flake.nix`:
 
@@ -23,241 +21,163 @@ Add to your `flake.nix`:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    home-manager.url = "github:nix-community/home-manager";
-
     pkgflow.url = "github:HuaDeity/pkgflow";
     pkgflow.inputs.nixpkgs.follows = "nixpkgs";
   };
-
-  outputs = { nixpkgs, home-manager, pkgflow, ... }: {
-    # Home-manager configuration
-    homeConfigurations."user@host" = home-manager.lib.homeManagerConfiguration {
-      modules = [
-        pkgflow.homeModules.default
-        {
-          pkgflow.manifestPackages = {
-            enable = true;
-            manifestFile = ./path/to/manifest.toml;
-          };
-        }
-      ];
-    };
-
-    # NixOS/nix-darwin configuration
-    nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
-      modules = [
-        pkgflow.systemModules.default
-        {
-          pkgflow.manifestPackages = {
-            enable = true;
-            manifestFile = ./path/to/manifest.toml;
-            # Automatically installs to environment.systemPackages in system contexts
-          };
-        }
-      ];
-    };
-  };
 }
 ```
-
-### Direct Import (Without Flakes)
-
-<details>
-<summary>Click to expand non-flake installation method</summary>
-
-```nix
-{ pkgs, ... }:
-let
-  pkgflow = builtins.fetchGit {
-    url = "https://github.com/HuaDeity/pkgflow";
-    ref = "main";
-  };
-in
-{
-  imports = [ "${pkgflow}/default.nix" ];
-
-  pkgflow.manifestPackages = {
-    enable = true;
-    manifestFile = ./manifest.toml;
-  };
-}
-```
-
-</details>
 
 ## Module Structure
 
-pkgflow provides 4 simple, independent module outputs:
+pkgflow provides 3 simple, independent module outputs:
 
-| Module | Use For | Required? |
-|--------|---------|-----------|
-| `sharedModules.default` | Shared options (`pkgflow.manifest.*`) | Optional - for convenience |
-| `homeModules.default` | Home-manager (`home.packages`) | ✅ Required for home-manager |
-| `systemModules.default` | NixOS/Darwin (`environment.systemPackages`) | ✅ Required for system |
-| `brewModules.default` | Darwin Homebrew (`homebrew.brews`/`casks`) | Optional - for Homebrew |
+| Module | Use For | Auto-detects Context |
+|--------|---------|---------------------|
+| `sharedModules.default` | Shared manifest path | N/A |
+| `nixModules.default` | Nix packages (home OR system) | ✅ Yes |
+| `brewModules.default` | Darwin Homebrew | No |
 
-**Each module works independently** - you don't need to import `sharedModules` unless you want to use global `pkgflow.manifest.*` options.
+**Key Features:**
+- ✅ **Import = Enable** - No `enable` option needed
+- ✅ **Auto-detection** - `nixModules` detects home-manager vs system context automatically
+- ✅ **Flake inputs** - Automatically uses your flake's `inputs` for flake packages
 
 ## Quick Start
 
 ### For Home-Manager
 
-**Option 1: With shared options (recommended)**
 ```nix
 { inputs, ... }:
 {
   imports = [
     inputs.pkgflow.sharedModules.default  # Optional: for global config
-    inputs.pkgflow.homeModules.default
+    inputs.pkgflow.nixModules.default     # Auto-detects home.packages
   ];
 
-  pkgflow.manifest = {
-    file = ./manifest.toml;
-    flakeInputs = inputs;
-  };
-
-  pkgflow.manifestPackages.enable = true;
+  pkgflow.manifest.file = ./manifest.toml;
 }
 ```
 
-**Option 2: Standalone (no shared module)**
-```nix
-{ inputs, ... }:
-{
-  imports = [ inputs.pkgflow.homeModules.default ];
-
-  pkgflow.manifestPackages = {
-    enable = true;
-    manifestFile = ./manifest.toml;
-    flakeInputs = inputs;
-  };
-}
-```
-
-### For NixOS
+### For NixOS/nix-darwin
 
 ```nix
 { inputs, ... }:
 {
   imports = [
     inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.systemModules.default
+    inputs.pkgflow.nixModules.default  # Auto-detects environment.systemPackages
   ];
 
-  pkgflow.manifest = {
-    file = ./manifest.toml;
-    flakeInputs = inputs;
-  };
-
-  pkgflow.manifestPackages.enable = true;
-  # Automatically installs to environment.systemPackages
+  pkgflow.manifest.file = ./manifest.toml;
 }
 ```
 
-### For nix-darwin (with Homebrew)
+### For nix-darwin with Homebrew
 
 ```nix
 { inputs, ... }:
 {
   imports = [
     inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.systemModules.default  # For Nix packages
-    inputs.pkgflow.brewModules.default    # For Homebrew
+    inputs.pkgflow.nixModules.default   # For Nix packages
+    inputs.pkgflow.brewModules.default  # For Homebrew
   ];
 
-  pkgflow.manifest = {
-    file = ./manifest.toml;
-    flakeInputs = inputs;
-  };
+  pkgflow.manifest.file = ./manifest.toml;
 
-  # Install Nix packages (only those WITH 'systems' attribute)
-  # Automatically installs to environment.systemPackages
-  pkgflow.manifestPackages = {
-    enable = true;
-    requireSystemMatch = true;
-  };
-
-  # Install Homebrew packages (only those WITHOUT 'systems' attribute)
-  pkgflow.homebrewManifest.enable = true;
+  # Optional: Only install packages that explicitly declare systems
+  pkgflow.manifestPackages.requireSystemMatch = true;
 }
 ```
 
-## Usage
+## Configuration Options
 
-### Basic Home-Manager Usage
+### `pkgflow.manifest` (Shared)
 
 ```nix
-{
-  pkgflow.manifestPackages = {
-    enable = true;
-    manifestFile = ./my-project/.flox/env/manifest.toml;
-  };
-}
+pkgflow.manifest.file = ./path/to/manifest.toml;
 ```
 
-### With Flake Package Support
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | path | `null` | Path to manifest.toml file |
+
+### `pkgflow.manifestPackages` (Nix Packages)
+
+```nix
+pkgflow.manifestPackages = {
+  manifestFile = ./custom-manifest.toml;  # Optional: override shared
+  requireSystemMatch = true;              # Optional: filter packages
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `manifestFile` | path | `null` | Override shared manifest path |
+| `requireSystemMatch` | bool | `false` | Control package filtering (see below) |
+
+#### System Filtering Behavior
+
+**The `systems` attribute is ALWAYS respected when present.**
+
+`requireSystemMatch` only controls packages **WITHOUT** a `systems` attribute:
+
+| Package Type | `requireSystemMatch = false` | `requireSystemMatch = true` |
+|--------------|------------------------------|----------------------------|
+| Has `systems` with current system | ✅ Installed | ✅ Installed |
+| Has `systems` without current system | ❌ Skipped | ❌ Skipped |
+| **No `systems` attribute** | **✅ Installed** | **❌ Skipped** |
+
+**Example on `aarch64-darwin`:**
+```toml
+[install]
+# No systems - behavior depends on requireSystemMatch
+git.pkg-path = "git"
+
+# Has systems including aarch64-darwin - always installed
+helix.flake = "github:helix-editor/helix"
+helix.systems = ["aarch64-darwin", "x86_64-linux"]
+
+# Has systems without aarch64-darwin - always skipped
+mihomo.pkg-path = "mihomo"
+mihomo.systems = ["aarch64-linux", "x86_64-linux"]
+```
+
+### `pkgflow.homebrewManifest` (Darwin only)
+
+```nix
+pkgflow.homebrewManifest = {
+  manifestFile = ./custom-manifest.toml;  # Optional: override shared
+  mappingFile = ./my-mapping.toml;        # Optional: custom mapping
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `manifestFile` | path | `null` | Override shared manifest path |
+| `mappingFile` | path | `./config/mapping.toml` | Nix → Homebrew mapping |
+
+**Homebrew module behavior:**
+- ✅ Installs packages **WITHOUT** `systems` attribute
+- ❌ Skips packages **WITH** `systems` attribute (reserved for Nix)
+
+## macOS Configuration Strategy
+
+On macOS, use both `nixModules` and `brewModules` together:
 
 ```nix
 { inputs, ... }:
 {
-  pkgflow.manifestPackages = {
-    enable = true;
-    manifestFile = ./manifest.toml;
-    flakeInputs = inputs;  # Pass flake inputs for flake package resolution
-  };
-}
-```
+  imports = [
+    inputs.pkgflow.sharedModules.default
+    inputs.pkgflow.nixModules.default
+    inputs.pkgflow.brewModules.default
+  ];
 
-### NixOS/Darwin System Packages
+  pkgflow.manifest.file = ./manifest.toml;
 
-```nix
-{
-  pkgflow.manifestPackages = {
-    enable = true;
-    manifestFile = ./manifest.toml;
-    # Automatically installs to environment.systemPackages in system contexts
-  };
-}
-```
-
-### Global Manifest Path
-
-Set a global default manifest path:
-
-```nix
-{
-  pkgflow.manifest.file = ./default/.flox/env/manifest.toml;
-
-  pkgflow.manifestPackages = {
-    enable = true;
-    # Will use pkgflow.manifest.file
-  };
-}
-```
-
-### macOS Configuration Strategies
-
-On macOS (nix-darwin), you have two recommended approaches:
-
-#### Strategy 1: Homebrew-First (Recommended for macOS)
-
-**Use Case**: You want Homebrew for better macOS integration, Nix only for packages unavailable in Homebrew.
-
-```nix
-{
-  pkgflow.manifest = {
-    file = ./manifest.toml;
-    flakeInputs = inputs;
-  };
-
-  # Install Homebrew packages (from packages WITHOUT systems attribute)
-  pkgflow.homebrewManifest.enable = true;
-
-  # Install Nix-exclusive packages (from packages WITH systems attribute)
-  pkgflow.manifestPackages = {
-    enable = true;
-    requireSystemMatch = true;  # Only install if system explicitly listed
-  };
+  # Only install Nix packages that explicitly declare systems
+  pkgflow.manifestPackages.requireSystemMatch = true;
 }
 ```
 
@@ -266,97 +186,65 @@ On macOS (nix-darwin), you have two recommended approaches:
 [install]
 # → Homebrew (no systems attribute)
 git.pkg-path = "git"
-node.pkg-path = "nodejs"
+nodejs.pkg-path = "nodejs"
 neovim.pkg-path = "neovim"
 
 # → Nix only (has systems attribute)
 nixfmt-rfc-style.pkg-path = "nixfmt-rfc-style"
 nixfmt-rfc-style.systems = ["aarch64-darwin", "x86_64-linux"]
 
-# → Nix only (flake package)
 helix.flake = "github:helix-editor/helix"
-helix.systems = ["aarch64-darwin"]
+helix.systems = ["aarch64-darwin", "x86_64-linux"]
 ```
 
-**Result**:
-- ✅ Homebrew installs: git, node, neovim (native performance)
-- ✅ Nix installs: nixfmt-rfc-style, helix (unavailable in Homebrew)
-- ✅ No duplicate installations
+**Result:**
+- ✅ Homebrew: git, nodejs, neovim
+- ✅ Nix: nixfmt-rfc-style, helix
+- ✅ No duplicates
 
-#### Strategy 2: Nix-Only
+## Flake Package Support
 
-**Use Case**: You want to use Nix for everything (same as Linux/NixOS).
+Flake packages are **automatically resolved** from your flake inputs:
 
+1. **Add the flake to your inputs:**
 ```nix
 {
-  pkgflow.manifestPackages = {
-    enable = true;
-    manifestFile = ./manifest.toml;
-    flakeInputs = inputs;
-    # No requireSystemMatch - install all packages via Nix
+  inputs = {
+    helix.url = "github:helix-editor/helix";
+    mcp-hub.url = "github:ravitemer/mcp-hub";
   };
 }
 ```
 
-**Manifest example:**
+2. **Reference in manifest:**
 ```toml
 [install]
-# All installed via Nix
-git.pkg-path = "git"
-neovim.pkg-path = "neovim"
-nodejs.pkg-path = "nodejs"
+helix.flake = "github:helix-editor/helix"
+helix.systems = ["aarch64-darwin", "x86_64-linux"]
+
+mcp-hub.flake = "github:ravitemer/mcp-hub"
+mcp-hub.systems = ["aarch64-darwin", "x86_64-linux"]
 ```
 
-**Result**:
-- ✅ Nix installs all compatible packages
-- ✅ Consistent with Linux/NixOS behavior
-- ✅ No Homebrew needed
+3. **pkgflow automatically uses `inputs`** - No configuration needed!
 
-#### How It Works
+**If a flake package is missing:**
+```
+pkgflow: Flake package 'helix' not found in flake inputs.
 
-**Key Insight**: The `systems` attribute acts as a **Nix-exclusive marker** on macOS.
+The manifest references: helix.flake = "github:helix-editor/helix"
+But 'helix' is not available in your flake inputs.
 
-**Nix Installation (`manifestPackages`):**
-- `requireSystemMatch = false` (default): Install packages without `systems`, plus any package whose `systems` list includes the current platform
-- `requireSystemMatch = true`: Install only packages that declare `systems` and include the current platform
+To fix this, add to your flake.nix:
+  inputs.helix.url = "github:helix-editor/helix";
+  inputs.helix.inputs.nixpkgs.follows = "nixpkgs";
 
-**Homebrew Installation (`homebrewManifest`):**
-- Packages **WITHOUT** `systems`: ✅ Converted to Homebrew
-- Packages **WITH** `systems`: ❌ Skipped (Nix-exclusive)
-
-This design prevents duplicate installations when using both modules together.
-
-## Configuration Options
-
-### `pkgflow.manifestPackages`
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enable` | bool | `false` | Enable package installation from manifest |
-| `manifestFile` | path | `null` | Path to manifest.toml file |
-| `flakeInputs` | attrs | `null` | Flake inputs for resolving flake packages |
-| `requireSystemMatch` | bool | `false` | Only install packages matching current system |
-
-**Note**: Output destination is automatic - `homeModules` installs to `home.packages`, `systemModules` installs to `environment.systemPackages`.
-
-### `pkgflow.homebrewManifest` (Darwin only)
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enable` | bool | `false` | Enable Homebrew package installation |
-| `manifestFile` | path | `null` | Path to manifest.toml file |
-| `mappingFile` | path | `./config/mapping.toml` | Nix → Homebrew mapping file |
-
-### `pkgflow.manifest`
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `file` | path | `null` | Global default manifest path (used by all modules) |
-| `flakeInputs` | attrs | `null` | Global flake inputs (shared across modules) |
+Then run: nix flake update helix
+```
 
 ## Manifest Format
 
-This module currently reads standard Flox `manifest.toml` files:
+pkgflow reads standard Flox `manifest.toml` files:
 
 ```toml
 version = 1
@@ -366,30 +254,100 @@ version = 1
 git.pkg-path = "git"
 neovim.pkg-path = "neovim"
 
-# Packages with system filters
+# With nested paths
 nodejs.pkg-path = "nodejs"
-nodejs.systems = ["x86_64-linux", "aarch64-darwin"]
 
-# Flake-based packages (requires flakeInputs)
+# With system filters
+python3.pkg-path = "python3"
+python3.systems = ["x86_64-linux", "aarch64-darwin"]
+
+# Flake packages (requires flake input)
 helix.flake = "github:helix-editor/helix"
+helix.systems = ["aarch64-darwin", "x86_64-linux"]
 ```
 
 ## Examples
 
-See the [examples/](./examples/) directory for complete configurations:
+### Minimal Home-Manager
 
-- [home-manager.nix](./examples/home-manager.nix) - Home-manager standalone
-- [nixos.nix](./examples/nixos.nix) - NixOS system configuration
-- [darwin.nix](./examples/darwin.nix) - macOS with nix-darwin
-- [with-flakes.nix](./examples/with-flakes.nix) - Using flake packages
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  pkgflow.manifestPackages.manifestFile = ./manifest.toml;
+}
+```
+
+### Shared Manifest Across Modules
+
+```nix
+# In shared config
+{ inputs, ... }:
+{
+  imports = [ inputs.pkgflow.sharedModules.default ];
+  pkgflow.manifest.file = ./default/.flox/env/manifest.toml;
+}
+
+# In home-manager config
+{ inputs, ... }:
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  # Uses pkgflow.manifest.file from shared config
+}
+```
+
+### Per-Host System Filtering
+
+```nix
+# macOS host
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  pkgflow.manifestPackages.requireSystemMatch = true;
+}
+
+# Linux host
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  # No requireSystemMatch - install all compatible packages
+}
+```
 
 ## How It Works
 
-1. Reads the Flox `manifest.toml` file (or other supported formats)
-2. Parses the `[install]` section for package definitions
-3. Resolves packages from nixpkgs or flake inputs
-4. Filters by system compatibility (if enabled)
-5. Installs to `home.packages` or `environment.systemPackages`
+1. **Reads** the Flox `manifest.toml` file
+2. **Filters** packages by system compatibility
+3. **Resolves** packages from nixpkgs or flake inputs
+4. **Detects** context (home-manager vs system)
+5. **Installs** to appropriate location
+
+## Migration from v1
+
+If you're upgrading from an older version:
+
+**Old (v1):**
+```nix
+{
+  imports = [ inputs.pkgflow.homeModules.default ];
+
+  pkgflow.manifest = {
+    file = ./manifest.toml;
+    flakeInputs = inputs;  # ❌ Removed
+  };
+
+  pkgflow.manifestPackages.enable = true;  # ❌ Removed
+}
+```
+
+**New (v2):**
+```nix
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+
+  pkgflow.manifest.file = ./manifest.toml;
+  # flakeInputs automatically uses your flake's inputs
+  # No enable option - import = enable
+}
+```
 
 ## Roadmap
 
@@ -397,13 +355,6 @@ See the [examples/](./examples/) directory for complete configurations:
 - 📝 **Brewfile support** - Direct Brewfile to Nix conversion
 - 📦 **APT/DNF support** - Support for Debian/RedHat package lists
 - 🔀 **Bi-directional** - Convert from Nix to other formats
-- 🎯 **Custom formats** - Plugin system for custom manifest formats
-
-## Limitations
-
-- Flake packages require passing `flakeInputs` option
-- Homebrew mapping requires maintaining the mapping file
-- System filtering is opt-in (defaults to installing all packages)
 
 ## Contributing
 

@@ -7,28 +7,18 @@
 
 {
   imports = [
-    inputs.pkgflow.homeModules.default
+    inputs.pkgflow.sharedModules.default  # Optional: for global config
+    inputs.pkgflow.nixModules.default     # Auto-detects home.packages
   ];
 
-  # Recommended: Set global configuration
-  pkgflow.manifest = {
-    file = ./my-project/.flox/env/manifest.toml;
-    flakeInputs = inputs;  # For flake package support
-  };
+  # Shared manifest path (recommended for multiple modules)
+  pkgflow.manifest.file = ./my-project/.flox/env/manifest.toml;
 
-  # Enable package installation to home.packages
-  pkgflow.manifestPackages = {
-    enable = true;
-    # output = "home";  # Default - installs to home.packages
-  };
+  # Optional: Override manifest for this specific module
+  # pkgflow.manifestPackages.manifestFile = ./custom-manifest.toml;
 
-  # Alternative: Direct configuration without global settings
-  # pkgflow.manifestPackages = {
-  #   enable = true;
-  #   manifestFile = ./manifest.toml;
-  #   flakeInputs = inputs;
-  #   requireSystemMatch = true;  # Optional: strict system filtering
-  # };
+  # Optional: Only install packages that explicitly declare systems
+  # pkgflow.manifestPackages.requireSystemMatch = true;
 
   # Rest of your home-manager configuration
   home = {

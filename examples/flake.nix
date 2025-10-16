@@ -1,7 +1,7 @@
-# Example: Complete flake.nix using pkgflow-nix
+# Example: Complete flake.nix using pkgflow
 
 {
-  description = "Example flake using pkgflow-nix";
+  description = "Example flake using pkgflow";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -10,9 +10,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Add pkgflow-nix
+    # Add pkgflow
     pkgflow = {
-      url = "github:yourusername/pkgflow-nix";
+      url = "github:HuaDeity/pkgflow";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -29,7 +29,7 @@
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
 
       modules = [
-        pkgflow.homeModules.default
+        pkgflow.nixModules.default  # Auto-detects home.packages
 
         {
           home.username = "user";
@@ -37,11 +37,7 @@
           home.stateVersion = "24.05";
 
           # Configure manifest package installation
-          pkgflow.manifestPackages = {
-            enable = true;
-            manifestFile = ./manifest.toml;
-            flakeInputs = inputs;
-          };
+          pkgflow.manifestPackages.manifestFile = ./manifest.toml;
         }
       ];
     };
@@ -51,17 +47,12 @@
       system = "x86_64-linux";
 
       modules = [
-        pkgflow.nixosModules.default
+        pkgflow.nixModules.default  # Auto-detects environment.systemPackages
         ./hardware-configuration.nix
 
         {
           # System configuration
-          pkgflow.manifestPackages = {
-            enable = true;
-            manifestFile = ./system-manifest.toml;
-            flakeInputs = inputs;
-            # Installs to environment.systemPackages automatically
-          };
+          pkgflow.manifestPackages.manifestFile = ./system-manifest.toml;
 
           system.stateVersion = "24.05";
         }

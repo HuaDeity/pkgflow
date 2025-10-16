@@ -8,12 +8,6 @@ let
 in
 {
   options.pkgflow.homebrewManifest = {
-    enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Enable automatic Homebrew package installation from package manifest.";
-    };
-
     manifestFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
@@ -30,10 +24,9 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable (
-    let
-      # Check if shared options exist
-      hasSharedOptions = config.pkgflow ? manifest;
+  config = let
+    # Check if shared options exist
+    hasSharedOptions = config.pkgflow ? manifest;
 
       # Resolution order:
       # 1. Module-specific manifestFile
@@ -137,6 +130,5 @@ in
         homebrew.brews = lib.map formatBrew formulas;
         homebrew.casks = lib.map (p: p.brew) casks;
       }
-    ]
-  );
+    ];
 }
