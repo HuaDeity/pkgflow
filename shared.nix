@@ -1,5 +1,5 @@
 # Shared configuration for pkgflow manifest-based package management
-{ lib, ... }:
+{ lib }:
 
 {
   options.pkgflow.manifest = {

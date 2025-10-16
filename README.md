@@ -38,6 +38,7 @@ pkgflow provides 3 simple, independent module outputs:
 | `brewModules.default` | Darwin Homebrew | No |
 
 **Key Features:**
+
 - ✅ **Import = Enable** - No `enable` option needed
 - ✅ **Auto-detection** - `nixModules` detects home-manager vs system context automatically
 - ✅ **Flake inputs** - Automatically uses your flake's `inputs` for flake packages
@@ -50,8 +51,8 @@ pkgflow provides 3 simple, independent module outputs:
 { inputs, ... }:
 {
   imports = [
-    inputs.pkgflow.sharedModules.default  # Optional: for global config
-    inputs.pkgflow.nixModules.default     # Auto-detects home.packages
+    inputs.pkgflow.sharedModules.default # Optional: for global config
+    inputs.pkgflow.nixModules.default # Auto-detects home.packages
   ];
 
   pkgflow.manifest.file = ./manifest.toml;
@@ -65,7 +66,7 @@ pkgflow provides 3 simple, independent module outputs:
 {
   imports = [
     inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.nixModules.default  # Auto-detects environment.systemPackages
+    inputs.pkgflow.nixModules.default # Auto-detects environment.systemPackages
   ];
 
   pkgflow.manifest.file = ./manifest.toml;
@@ -79,8 +80,8 @@ pkgflow provides 3 simple, independent module outputs:
 {
   imports = [
     inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.nixModules.default   # For Nix packages
-    inputs.pkgflow.brewModules.default  # For Homebrew
+    inputs.pkgflow.nixModules.default # For Nix packages
+    inputs.pkgflow.brewModules.default # For Homebrew
   ];
 
   pkgflow.manifest.file = ./manifest.toml;
@@ -129,6 +130,7 @@ pkgflow.manifestPackages = {
 | **No `systems` attribute** | **✅ Installed** | **❌ Skipped** |
 
 **Example on `aarch64-darwin`:**
+
 ```toml
 [install]
 # No systems - behavior depends on requireSystemMatch
@@ -158,6 +160,7 @@ pkgflow.homebrewManifest = {
 | `mappingFile` | path | `./config/mapping.toml` | Nix → Homebrew mapping |
 
 **Homebrew module behavior:**
+
 - ✅ Installs packages **WITHOUT** `systems` attribute
 - ❌ Skips packages **WITH** `systems` attribute (reserved for Nix)
 
@@ -182,6 +185,7 @@ On macOS, use both `nixModules` and `brewModules` together:
 ```
 
 **Manifest example:**
+
 ```toml
 [install]
 # → Homebrew (no systems attribute)
@@ -198,6 +202,7 @@ helix.systems = ["aarch64-darwin", "x86_64-linux"]
 ```
 
 **Result:**
+
 - ✅ Homebrew: git, nodejs, neovim
 - ✅ Nix: nixfmt-rfc-style, helix
 - ✅ No duplicates
@@ -207,6 +212,7 @@ helix.systems = ["aarch64-darwin", "x86_64-linux"]
 Flake packages are **automatically resolved** from your flake inputs:
 
 1. **Add the flake to your inputs:**
+
 ```nix
 {
   inputs = {
@@ -217,6 +223,7 @@ Flake packages are **automatically resolved** from your flake inputs:
 ```
 
 2. **Reference in manifest:**
+
 ```toml
 [install]
 helix.flake = "github:helix-editor/helix"
@@ -229,6 +236,7 @@ mcp-hub.systems = ["aarch64-darwin", "x86_64-linux"]
 3. **pkgflow automatically uses `inputs`** - No configuration needed!
 
 **If a flake package is missing:**
+
 ```
 pkgflow: Flake package 'helix' not found in flake inputs.
 
@@ -296,22 +304,6 @@ helix.systems = ["aarch64-darwin", "x86_64-linux"]
 }
 ```
 
-### Per-Host System Filtering
-
-```nix
-# macOS host
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-  pkgflow.manifestPackages.requireSystemMatch = true;
-}
-
-# Linux host
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-  # No requireSystemMatch - install all compatible packages
-}
-```
-
 ## How It Works
 
 1. **Reads** the Flox `manifest.toml` file
@@ -319,35 +311,6 @@ helix.systems = ["aarch64-darwin", "x86_64-linux"]
 3. **Resolves** packages from nixpkgs or flake inputs
 4. **Detects** context (home-manager vs system)
 5. **Installs** to appropriate location
-
-## Migration from v1
-
-If you're upgrading from an older version:
-
-**Old (v1):**
-```nix
-{
-  imports = [ inputs.pkgflow.homeModules.default ];
-
-  pkgflow.manifest = {
-    file = ./manifest.toml;
-    flakeInputs = inputs;  # ❌ Removed
-  };
-
-  pkgflow.manifestPackages.enable = true;  # ❌ Removed
-}
-```
-
-**New (v2):**
-```nix
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-
-  pkgflow.manifest.file = ./manifest.toml;
-  # flakeInputs automatically uses your flake's inputs
-  # No enable option - import = enable
-}
-```
 
 ## Roadmap
 
@@ -359,10 +322,6 @@ If you're upgrading from an older version:
 ## Contributing
 
 Contributions welcome! Please open an issue or PR on [GitHub](https://github.com/HuaDeity/pkgflow).
-
-## License
-
-MIT License - See [LICENSE](./LICENSE) file for details.
 
 ## Credits
 

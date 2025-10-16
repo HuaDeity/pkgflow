@@ -1,19 +1,22 @@
 # Unified module for installing packages from package manifests
 # Auto-detects home-manager vs system context
-{ config, lib, pkgs, options, inputs ? {}, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  options,
+  inputs,
+}:
 
 let
   cfg = config.pkgflow.manifestPackages;
 
-  processManifest = manifestCfg:
+  processManifest =
+    manifestCfg:
     let
       manifestFile = manifestCfg.manifestFile;
 
-      manifest =
-        if manifestFile != null then
-          lib.importTOML manifestFile
-        else
-          { };
+      manifest = if manifestFile != null then lib.importTOML manifestFile else { };
 
       packages = manifest.install or { };
 
@@ -22,7 +25,8 @@ let
       # requireSystemMatch only controls packages WITHOUT systems attribute:
       #   - false: Include packages without systems attribute
       #   - true: Exclude packages without systems attribute
-      systemMatches = attrs:
+      systemMatches =
+        attrs:
         if attrs ? systems then
           # If package has systems attribute, always check if current system is supported
           lib.elem pkgs.system attrs.systems
@@ -33,58 +37,51 @@ let
       systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
 
       # Unified package resolution
-      resolvePackage = name: attrs:
+      resolvePackage =
+        name: attrs:
         if attrs ? flake then
           # Flake package resolution
           let
             hasInput = inputs ? ${name};
-            pkg = lib.attrByPath
-              [ name "packages" pkgs.system "default" ]
-              null
-              inputs;
+            pkg = lib.attrByPath [ name "packages" pkgs.system "default" ] null inputs;
           in
           if pkg != null then
             pkg
           else if !hasInput then
             # Input not found - provide helpful error
-            builtins.trace
-              ''
-                pkgflow: Flake package '${name}' not found in flake inputs.
+            builtins.trace ''
+              pkgflow: Flake package '${name}' not found in flake inputs.
 
-                The manifest references: ${name}.flake = "${attrs.flake}"
-                But '${name}' is not available in your flake inputs.
+              The manifest references: ${name}.flake = "${attrs.flake}"
+              But '${name}' is not available in your flake inputs.
 
-                To fix this, add to your flake.nix:
-                  inputs.${name}.url = "${attrs.flake}";
-                  inputs.${name}.inputs.nixpkgs.follows = "nixpkgs";
+              To fix this, add to your flake.nix:
+                inputs.${name}.url = "${attrs.flake}";
+                inputs.${name}.inputs.nixpkgs.follows = "nixpkgs";
 
-                Then run: nix flake update ${name}
-              ''
-              null
+              Then run: nix flake update ${name}
+            '' null
           else
             # Input exists but package not found in it
-            builtins.trace
-              ''
-                pkgflow: Package not found in flake input '${name}'.
+            builtins.trace ''
+              pkgflow: Package not found in flake input '${name}'.
 
-                Tried to resolve: ${name}.packages.${pkgs.system}.default
-                But it doesn't exist in the flake output.
+              Tried to resolve: ${name}.packages.${pkgs.system}.default
+              But it doesn't exist in the flake output.
 
-                Check if the flake provides packages for ${pkgs.system}.
-              ''
-              null
+              Check if the flake provides packages for ${pkgs.system}.
+            '' null
         else
           # Regular nixpkgs package resolution
           let
-            parts = if builtins.isList attrs.pkg-path
-                    then attrs.pkg-path
-                    else lib.splitString "." attrs.pkg-path;
+            parts =
+              if builtins.isList attrs.pkg-path then attrs.pkg-path else lib.splitString "." attrs.pkg-path;
           in
           lib.attrByPath parts null pkgs;
 
-      resolvedPackages = lib.filter
-        (pkg: pkg != null)
-        (lib.mapAttrsToList resolvePackage systemFilteredPackages);
+      resolvedPackages = lib.filter (pkg: pkg != null) (
+        lib.mapAttrsToList resolvePackage systemFilteredPackages
+      );
     in
     resolvedPackages;
 in
@@ -119,26 +116,27 @@ in
     };
   };
 
-  config = let
-    # Check if shared options exist
-    hasSharedOptions = config.pkgflow ? manifest;
+  config =
+    let
+      # Check if shared options exist
+      hasSharedOptions = config.pkgflow ? manifest;
 
-    # Resolution order:
-    # 1. Module-specific manifestFile
-    # 2. Shared pkgflow.manifest.file (if exists)
-    # 3. null
-    actualManifestFile =
-      if cfg.manifestFile != null then
-        cfg.manifestFile
-      else if hasSharedOptions && config.pkgflow.manifest.file != null then
-        config.pkgflow.manifest.file
-      else
-        null;
+      # Resolution order:
+      # 1. Module-specific manifestFile
+      # 2. Shared pkgflow.manifest.file (if exists)
+      # 3. null
+      actualManifestFile =
+        if cfg.manifestFile != null then
+          cfg.manifestFile
+        else if hasSharedOptions && config.pkgflow.manifest.file != null then
+          config.pkgflow.manifest.file
+        else
+          null;
 
-    manifestCfg = cfg // {
-      manifestFile = actualManifestFile;
-    };
-  in
+      manifestCfg = cfg // {
+        manifestFile = actualManifestFile;
+      };
+    in
     lib.mkMerge [
       # Validation assertions
       {

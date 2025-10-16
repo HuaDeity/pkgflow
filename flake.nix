@@ -1,20 +1,14 @@
 {
   description = "pkgflow - Universal package manifest transformer for Nix";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  outputs = {
+    # Shared module (just defines options, no imports)
+    sharedModules.default = ./shared.nix;
+
+    # Unified nix module (auto-detects home-manager vs system context)
+    nixModules.default = ./home.nix;
+
+    # Homebrew module (for Darwin homebrew.brews/casks)
+    brewModules.default = ./darwin.nix;
   };
-
-  outputs =
-    { self, nixpkgs }:
-    {
-      # Shared module (just defines options, no imports)
-      sharedModules.default = ./shared.nix;
-
-      # Unified nix module (auto-detects home-manager vs system context)
-      nixModules.default = ./home.nix;
-
-      # Homebrew module (for Darwin homebrew.brews/casks)
-      brewModules.default = ./darwin.nix;
-    };
 }
