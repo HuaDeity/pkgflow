@@ -22,7 +22,6 @@ Add to your `flake.nix`:
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     pkgflow.url = "github:HuaDeity/pkgflow";
-    pkgflow.inputs.nixpkgs.follows = "nixpkgs";
   };
 }
 ```

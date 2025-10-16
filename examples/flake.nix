@@ -13,7 +13,6 @@
     # Add pkgflow
     pkgflow = {
       url = "github:HuaDeity/pkgflow";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # Add any flake packages referenced in your manifest
@@ -23,40 +22,48 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, pkgflow, ... }@inputs: {
-    # Home-manager configuration
-    homeConfigurations."user@laptop" = home-manager.lib.homeManagerConfiguration {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+  outputs =
+    {
+      self,
+      nixpkgs,
+      home-manager,
+      pkgflow,
+      ...
+    }@inputs:
+    {
+      # Home-manager configuration
+      homeConfigurations."user@laptop" = home-manager.lib.homeManagerConfiguration {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
 
-      modules = [
-        pkgflow.nixModules.default  # Auto-detects home.packages
+        modules = [
+          pkgflow.nixModules.default # Auto-detects home.packages
 
-        {
-          home.username = "user";
-          home.homeDirectory = "/home/user";
-          home.stateVersion = "24.05";
+          {
+            home.username = "user";
+            home.homeDirectory = "/home/user";
+            home.stateVersion = "24.05";
 
-          # Configure manifest package installation
-          pkgflow.manifestPackages.manifestFile = ./manifest.toml;
-        }
-      ];
+            # Configure manifest package installation
+            pkgflow.manifestPackages.manifestFile = ./manifest.toml;
+          }
+        ];
+      };
+
+      # NixOS configuration
+      nixosConfigurations.desktop = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+
+        modules = [
+          pkgflow.nixModules.default # Auto-detects environment.systemPackages
+          ./hardware-configuration.nix
+
+          {
+            # System configuration
+            pkgflow.manifestPackages.manifestFile = ./system-manifest.toml;
+
+            system.stateVersion = "24.05";
+          }
+        ];
+      };
     };
-
-    # NixOS configuration
-    nixosConfigurations.desktop = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-
-      modules = [
-        pkgflow.nixModules.default  # Auto-detects environment.systemPackages
-        ./hardware-configuration.nix
-
-        {
-          # System configuration
-          pkgflow.manifestPackages.manifestFile = ./system-manifest.toml;
-
-          system.stateVersion = "24.05";
-        }
-      ];
-    };
-  };
 }
