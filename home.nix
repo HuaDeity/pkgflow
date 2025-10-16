@@ -36,10 +36,44 @@ let
       resolvePackage = name: attrs:
         if attrs ? flake then
           # Flake package resolution
-          lib.attrByPath
-            [ name "packages" pkgs.system "default" ]
-            null
-            (manifestCfg.flakeInputs or {})
+          let
+            flakeInputs = manifestCfg.flakeInputs or {};
+            hasInput = flakeInputs ? ${name};
+            pkg = lib.attrByPath
+              [ name "packages" pkgs.system "default" ]
+              null
+              flakeInputs;
+          in
+          if pkg != null then
+            pkg
+          else if !hasInput then
+            # Input not found - provide helpful error
+            builtins.trace
+              ''
+                pkgflow: Flake package '${name}' not found in flake inputs.
+
+                The manifest references: ${name}.flake = "${attrs.flake}"
+                But '${name}' is not available in your flake inputs.
+
+                To fix this, add to your flake.nix:
+                  inputs.${name}.url = "${attrs.flake}";
+                  inputs.${name}.inputs.nixpkgs.follows = "nixpkgs";
+
+                Then run: nix flake update ${name}
+              ''
+              null
+          else
+            # Input exists but package not found in it
+            builtins.trace
+              ''
+                pkgflow: Package not found in flake input '${name}'.
+
+                Tried to resolve: ${name}.packages.${pkgs.system}.default
+                But it doesn't exist in the flake output.
+
+                Check if the flake provides packages for ${pkgs.system}.
+              ''
+              null
         else
           # Regular nixpkgs package resolution
           let
@@ -71,17 +105,6 @@ in
         When left as null, uses pkgflow.manifest.file if available.
       '';
       example = lib.literalExpression "./my-project/.flox/env/manifest.toml";
-    };
-
-    flakeInputs = lib.mkOption {
-      type = lib.types.unspecified;
-      default = null;
-      description = ''
-        Flake inputs to use for resolving flake-based packages in the manifest.
-        Pass your flake's inputs attribute here to enable flake package resolution.
-        Falls back to pkgflow.manifest.flakeInputs if available.
-      '';
-      example = lib.literalExpression "inputs";
     };
 
     requireSystemMatch = lib.mkOption {
@@ -120,14 +143,9 @@ in
         else
           null;
 
-      # Resolution order for flakeInputs:
-      # 1. Module-specific flakeInputs
-      # 2. Shared pkgflow.manifest.flakeInputs (if exists)
-      # 3. null
+      # Get flakeInputs from shared config only
       actualFlakeInputs =
-        if cfg.flakeInputs != null then
-          cfg.flakeInputs
-        else if hasSharedOptions && config.pkgflow.manifest.flakeInputs != null then
+        if hasSharedOptions && config.pkgflow.manifest.flakeInputs != null then
           config.pkgflow.manifest.flakeInputs
         else
           null;
