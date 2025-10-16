@@ -91,6 +91,7 @@ in
     manifestFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
+      apply = x: if x != null then toString x else null;
       description = ''
         Path to the manifest TOML file to import.
         When left as null, uses pkgflow.manifest.file if available.

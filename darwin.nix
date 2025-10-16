@@ -16,6 +16,7 @@ in
     manifestFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
+      apply = x: if x != null then toString x else null;
       description = ''
         Path to the package manifest that describes desired packages.
         When left as null, uses pkgflow.manifest.file if available.
@@ -25,6 +26,7 @@ in
     mappingFile = lib.mkOption {
       type = lib.types.path;
       default = defaultMappingFile;
+      apply = toString;
       description = "Path to the TOML mapping between nix package names and Homebrew formulae.";
     };
   };
