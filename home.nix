@@ -37,12 +37,11 @@ let
         if attrs ? flake then
           # Flake package resolution
           let
-            flakeInputs = manifestCfg.flakeInputs or {};
-            hasInput = flakeInputs ? ${name};
+            hasInput = inputs ? ${name};
             pkg = lib.attrByPath
               [ name "packages" pkgs.system "default" ]
               null
-              flakeInputs;
+              inputs;
           in
           if pkg != null then
             pkg
@@ -145,7 +144,6 @@ in
 
       manifestCfg = cfg // {
         manifestFile = actualManifestFile;
-        flakeInputs = inputs;  # Use inputs directly from module arguments
       };
     in
     lib.mkMerge [
