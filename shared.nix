@@ -12,15 +12,5 @@
       '';
       example = lib.literalExpression "./path/to/manifest.toml";
     };
-
-    flakeInputs = lib.mkOption {
-      type = lib.types.unspecified;
-      default = null;
-      description = ''
-        Global flake inputs to use for resolving flake-based packages.
-        This can be overridden per-module if needed.
-      '';
-      example = lib.literalExpression "inputs";
-    };
   };
 }

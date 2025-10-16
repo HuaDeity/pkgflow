@@ -1,6 +1,6 @@
 # Unified module for installing packages from package manifests
 # Auto-detects home-manager vs system context
-{ config, lib, pkgs, options, ... }:
+{ config, lib, pkgs, options, inputs ? {}, ... }:
 
 let
   cfg = config.pkgflow.manifestPackages;
@@ -143,16 +143,9 @@ in
         else
           null;
 
-      # Get flakeInputs from shared config only
-      actualFlakeInputs =
-        if hasSharedOptions && config.pkgflow.manifest.flakeInputs != null then
-          config.pkgflow.manifest.flakeInputs
-        else
-          null;
-
       manifestCfg = cfg // {
         manifestFile = actualManifestFile;
-        flakeInputs = actualFlakeInputs;
+        flakeInputs = inputs;  # Use inputs directly from module arguments
       };
     in
     lib.mkMerge [
