@@ -123,22 +123,22 @@ in
     # Check if shared options exist
     hasSharedOptions = config.pkgflow ? manifest;
 
-      # Resolution order:
-      # 1. Module-specific manifestFile
-      # 2. Shared pkgflow.manifest.file (if exists)
-      # 3. null
-      actualManifestFile =
-        if cfg.manifestFile != null then
-          cfg.manifestFile
-        else if hasSharedOptions && config.pkgflow.manifest.file != null then
-          config.pkgflow.manifest.file
-        else
-          null;
+    # Resolution order:
+    # 1. Module-specific manifestFile
+    # 2. Shared pkgflow.manifest.file (if exists)
+    # 3. null
+    actualManifestFile =
+      if cfg.manifestFile != null then
+        cfg.manifestFile
+      else if hasSharedOptions && config.pkgflow.manifest.file != null then
+        config.pkgflow.manifest.file
+      else
+        null;
 
-      manifestCfg = cfg // {
-        manifestFile = actualManifestFile;
-      };
-    in
+    manifestCfg = cfg // {
+      manifestFile = actualManifestFile;
+    };
+  in
     lib.mkMerge [
       # Validation assertions
       {
@@ -160,6 +160,18 @@ in
               ${toString actualManifestFile}
 
               Check that the path is correct and the file exists.
+            '';
+          }
+          {
+            assertion = (options ? home.packages) || (options ? environment.systemPackages);
+            message = ''
+              pkgflow.manifestPackages: Cannot detect installation context.
+
+              This module requires either:
+              - home-manager (home.packages option)
+              - NixOS/nix-darwin (environment.systemPackages option)
+
+              Make sure you're using this module in a supported context.
             '';
           }
         ];

@@ -1,5 +1,5 @@
 # Darwin/macOS module for converting package manifests to Homebrew packages
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   cfg = config.pkgflow.homebrewManifest;
@@ -28,74 +28,83 @@ in
     # Check if shared options exist
     hasSharedOptions = config.pkgflow ? manifest;
 
-      # Resolution order:
-      # 1. Module-specific manifestFile
-      # 2. Shared pkgflow.manifest.file (if exists)
-      # 3. null
-      actualManifestFile =
-        if cfg.manifestFile != null then
-          cfg.manifestFile
-        else if hasSharedOptions && config.pkgflow.manifest.file != null then
-          config.pkgflow.manifest.file
-        else
-          null;
+    # Resolution order:
+    # 1. Module-specific manifestFile
+    # 2. Shared pkgflow.manifest.file (if exists)
+    # 3. null
+    actualManifestFile =
+      if cfg.manifestFile != null then
+        cfg.manifestFile
+      else if hasSharedOptions && config.pkgflow.manifest.file != null then
+        config.pkgflow.manifest.file
+      else
+        null;
 
-      manifest =
-        if actualManifestFile != null then
-          lib.importTOML actualManifestFile
-        else
-          { };
+    manifest =
+      if actualManifestFile != null then
+        lib.importTOML actualManifestFile
+      else
+        { };
 
-      mapping = lib.importTOML cfg.mappingFile;
+    mapping = lib.importTOML cfg.mappingFile;
 
-      originalPackages = manifest.install or { };
+    originalPackages = manifest.install or { };
 
-      # Filter: Only packages WITHOUT systems attribute go to Homebrew
-      # This prevents duplicate installation (Nix + Homebrew)
-      packages = lib.filterAttrs (_: attrs: !(attrs ? systems)) originalPackages;
+    # Filter: Only packages WITHOUT systems attribute go to Homebrew
+    # This prevents duplicate installation (Nix + Homebrew)
+    packages = lib.filterAttrs (_: attrs: !(attrs ? systems)) originalPackages;
 
-      # Build Nix → Homebrew lookup table
-      nixToBrew = lib.listToAttrs (
-        lib.map (entry: {
-          name = entry.nix;
-          value = entry;
-        }) mapping.package
-      );
+    # Build Nix → Homebrew lookup table
+    nixToBrew = lib.listToAttrs (
+      lib.map (entry: {
+        name = entry.nix;
+        value = entry;
+      }) mapping.package
+    );
 
-      # Convert package to Homebrew format
-      convertToBrew = _: attrs:
-        let
-          # Normalize package path for lookup
-          lookupKey = attrs.flake or (
-            if builtins.isList attrs.pkg-path
-            then builtins.concatStringsSep "." attrs.pkg-path
-            else attrs.pkg-path
-          );
+    # Convert package to Homebrew format
+    convertToBrew = _: attrs:
+      let
+        # Normalize package path for lookup
+        lookupKey = attrs.flake or (
+          if builtins.isList attrs.pkg-path
+          then builtins.concatStringsSep "." attrs.pkg-path
+          else attrs.pkg-path
+        );
 
-          # Get mapping or use package name as fallback
-          brewInfo = nixToBrew.${lookupKey} or {
-            brew = lookupKey;
-            type = "formula";
-          };
-        in
-        brewInfo;
+        # Get mapping or use package name as fallback
+        brewInfo = nixToBrew.${lookupKey} or {
+          brew = lookupKey;
+          type = "formula";
+        };
+      in
+      brewInfo;
 
-      converted = lib.mapAttrsToList convertToBrew packages;
+    converted = lib.mapAttrsToList convertToBrew packages;
 
-      # Split into formulas and casks
-      formulas = lib.filter (p: (p.type or "formula") == "formula") converted;
-      casks = lib.filter (p: (p.type or "") == "cask") converted;
+    # Split into formulas and casks
+    formulas = lib.filter (p: (p.type or "formula") == "formula") converted;
+    casks = lib.filter (p: (p.type or "") == "cask") converted;
 
-      # Format brew entries (handle args)
-      formatBrew = p:
-        if p ? args then
-          { name = p.brew; args = p.args; }
-        else
-          p.brew;
-    in
+    # Format brew entries (handle args)
+    formatBrew = p:
+      if p ? args then
+        { name = p.brew; args = p.args; }
+      else
+        p.brew;
+  in
     lib.mkMerge [
       {
         assertions = [
+          {
+            assertion = pkgs.stdenv.isDarwin;
+            message = ''
+              pkgflow.homebrewManifest: This module is only for macOS/Darwin.
+
+              The Homebrew module (brewModules.default) can only be used on macOS.
+              For other platforms, use nixModules.default instead.
+            '';
+          }
           {
             assertion = actualManifestFile != null;
             message = ''
