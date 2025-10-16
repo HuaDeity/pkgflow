@@ -2,7 +2,7 @@
   description = "pkgflow - Universal package manifest transformer for Nix";
 
   outputs =
-    { }:
+    { ... }:
     {
       # Shared module (just defines options, no imports)
       sharedModules.default = ./shared.nix;

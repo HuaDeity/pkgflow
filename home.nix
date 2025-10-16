@@ -6,6 +6,7 @@
   pkgs,
   options,
   inputs,
+  ...
 }:
 
 let
