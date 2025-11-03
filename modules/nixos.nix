@@ -16,6 +16,6 @@ in
   ];
 
   config = lib.mkIf (cfg.manifestFile != null) {
-    environment.systemPackages = cfg._packages;
+    environment.systemPackages = cfg._nixPackages;
   };
 }

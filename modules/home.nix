@@ -12,10 +12,15 @@ let
   coreModule = import ./pkgflow.nix;
 
   isDarwin = pkgs.stdenv.isDarwin;
-  wantsHome = builtins.elem "home" cfg.darwinPackagesSource;
 
-  # Install if: (NOT Darwin) OR (Darwin AND "home" in darwinPackagesSource)
-  shouldInstall = !isDarwin || (isDarwin && wantsHome);
+  # Determine if we should install via home
+  # On Darwin: only if "home" is specified in sources
+  # On non-Darwin: always (assumes standalone home-manager, not with NixOS system module)
+  wantsHome =
+    if !isDarwin then
+      true
+    else
+      builtins.elem "home" cfg.darwinPackagesSource || builtins.elem "home" cfg.flakePackagesSource;
 in
 {
   imports = [
@@ -25,16 +30,20 @@ in
   config =
     let
       cacheEnabled = cfg.caches.enable or false;
+      cacheIsHome = cfg._effectiveInstallContext == "home";
     in
     lib.mkMerge [
       # Install packages
-      (lib.mkIf (cfg.manifestFile != null && shouldInstall) {
+      (lib.mkIf (cfg.manifestFile != null && wantsHome) {
         home.packages = cfg._nixPackages;
       })
 
-      # Set nix.package when using caches (required for home-manager)
-      (lib.mkIf cacheEnabled {
-        nix.package = lib.mkDefault pkgs.nix;
+      # Binary cache configuration - home level
+      (lib.mkIf (cacheEnabled && cfg._cacheResult.hasMatches && cacheIsHome) {
+        nix.settings = {
+          substituters = cfg._cacheResult.substituters;
+          trusted-public-keys = cfg._cacheResult.trustedKeys;
+        };
       })
     ];
 }

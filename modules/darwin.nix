@@ -11,50 +11,14 @@ let
   cfg = config.pkgflow;
   coreModule = import ./pkgflow.nix;
 
-  hasDarwinSources = (builtins.length cfg.darwinPackagesSource) > 0;
-  wantsSystem = builtins.elem "system" cfg.darwinPackagesSource;
-  wantsBrew = builtins.elem "brew" cfg.darwinPackagesSource;
+  # Determine if we want system-level installation
+  wantsSystem =
+    builtins.elem "system" cfg.darwinPackagesSource ||
+    builtins.elem "system" cfg.flakePackagesSource;
 
-  # Convert brew packages attrset to homebrew format
-  homebrewMapping = lib.importTOML cfg.homebrewMappingFile;
-  nixToBrew = lib.listToAttrs (
-    lib.map (entry: {
-      name = entry.nix;
-      value = entry;
-    }) homebrewMapping.package
-  );
-
-  convertToBrew =
-    _: attrs:
-    let
-      lookupKey =
-        attrs.flake or (
-          if builtins.isList attrs.pkg-path then
-            builtins.concatStringsSep "." attrs.pkg-path
-          else
-            attrs.pkg-path
-        );
-      brewInfo =
-        nixToBrew.${lookupKey} or {
-          brew = lookupKey;
-          type = "formula";
-        };
-    in
-    brewInfo;
-
-  converted = lib.mapAttrsToList convertToBrew cfg._brewPackages;
-  formulas = lib.filter (p: (p.type or "formula") == "formula") converted;
-  casks = lib.filter (p: (p.type or "") == "cask") converted;
-
-  formatBrew =
-    p:
-    if p ? args then
-      {
-        name = p.brew;
-        args = p.args;
-      }
-    else
-      p.brew;
+  wantsBrew =
+    builtins.elem "brew" cfg.darwinPackagesSource ||
+    builtins.elem "brew" cfg.flakePackagesSource;
 in
 {
   imports = [
@@ -74,20 +38,15 @@ in
       ];
     }
 
-    # Default behavior (no darwinPackagesSource): install all via systemPackages
-    (lib.mkIf (!hasDarwinSources && cfg.manifestFile != null) {
+    # Install Nix packages via systemPackages (when "system" in sources)
+    (lib.mkIf (wantsSystem && cfg.manifestFile != null) {
       environment.systemPackages = cfg._nixPackages;
     })
 
-    # Install Nix packages via systemPackages (when "system" in darwinPackagesSource)
-    (lib.mkIf wantsSystem {
-      environment.systemPackages = cfg._nixPackages;
-    })
-
-    # Install via Homebrew (when "brew" in darwinPackagesSource)
+    # Install via Homebrew (when "brew" in sources)
     (lib.mkIf wantsBrew {
-      homebrew.brews = lib.map formatBrew formulas;
-      homebrew.casks = lib.map (p: p.brew) casks;
+      homebrew.brews = cfg._homebrewFormulas;
+      homebrew.casks = cfg._homebrewCasks;
     })
   ];
 }
