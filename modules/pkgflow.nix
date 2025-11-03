@@ -227,7 +227,7 @@ in
             };
           }
         );
-        default = import ./config/caches.nix;
+        default = import ../config/caches.nix;
         description = ''
           Mapping of flake references to binary caches and trusted keys.
         '';
