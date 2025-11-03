@@ -154,11 +154,15 @@ in
     };
 
     autoAddNixCommunity = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
+      type = lib.types.nullOr lib.types.bool;
+      default = null;
       description = ''
-        Automatically add nix-community.cachix.org cache for any github:nix-community/* flakes.
-        When enabled, detects flakes from the nix-community organization and adds their cache.
+        Control nix-community.cachix.org cache for github:nix-community/* flakes.
+
+        Behavior:
+        - null (default): Auto-detect - add cache only if nix-community flakes are found
+        - true: Always add nix-community cache, regardless of whether flakes are detected
+        - false: Never add nix-community cache, even if nix-community flakes exist
 
         Cache details:
         - substituter: https://nix-community.cachix.org
@@ -258,8 +262,18 @@ in
               flakeRef: lib.hasPrefix "github:nix-community/" flakeRef
             ) flakeRefs;
 
-            # Add nix-community cache if enabled and detected
-            nixCommunityCaches = lib.optionals (cacheCfg.autoAddNixCommunity && hasNixCommunityFlake) [
+            # Determine if we should add nix-community cache
+            # null (default): add only if detected
+            # true: always add
+            # false: never add
+            shouldAddNixCommunity =
+              if cacheCfg.autoAddNixCommunity == null then
+                hasNixCommunityFlake
+              else
+                cacheCfg.autoAddNixCommunity;
+
+            # Add nix-community cache based on shouldAddNixCommunity
+            nixCommunityCaches = lib.optionals shouldAddNixCommunity [
               {
                 substituter = "https://nix-community.cachix.org";
                 trustedKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
