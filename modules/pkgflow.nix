@@ -31,15 +31,8 @@ let
     else
       null;
 
-  # Load manifest and get all packages (unresolved, just the attrset from manifest)
-  manifestPackages =
-    if actualManifestFile != null then
-      let
-        manifest = lib.importTOML actualManifestFile;
-      in
-      manifest.install or { }
-    else
-      { };
+  # Load manifest packages (unresolved) already filtered for the current system
+  manifestPackages = pkgflowLib.loadManifest actualManifestFile;
 
   # Determine platform and settings
   isDarwin = pkgs.stdenv.isDarwin;
