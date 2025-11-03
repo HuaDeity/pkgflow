@@ -11,9 +11,9 @@ let
   cfg = config.pkgflow;
   coreModule = import ../core.nix;
 
-  hasDarwinSources = pkgs.stdenv.isDarwin && (builtins.length cfg.darwinPackagesSource) > 0;
-  wantsSystem = hasDarwinSources && builtins.elem "system" cfg.darwinPackagesSource;
-  wantsBrew = hasDarwinSources && builtins.elem "brew" cfg.darwinPackagesSource;
+  hasDarwinSources = (builtins.length cfg.darwinPackagesSource) > 0;
+  wantsSystem = builtins.elem "system" cfg.darwinPackagesSource;
+  wantsBrew = builtins.elem "brew" cfg.darwinPackagesSource;
 
   # Convert brew packages attrset to homebrew format
   homebrewMapping = lib.importTOML cfg.homebrewMappingFile;
@@ -80,12 +80,12 @@ in
 
       # Default behavior (no darwinPackagesSource): install all via systemPackages
       (lib.mkIf (!hasDarwinSources && manifestFile != null) {
-        environment.systemPackages = cfg._packages;
+        environment.systemPackages = cfg._nixPackages;
       })
 
-      # Install via systemPackages (when "system" in darwinPackagesSource)
+      # Install Nix packages via systemPackages (when "system" in darwinPackagesSource)
       (lib.mkIf wantsSystem {
-        environment.systemPackages = cfg._systemPackages;
+        environment.systemPackages = cfg._nixPackages;
       })
 
       # Install via Homebrew (when "brew" in darwinPackagesSource)

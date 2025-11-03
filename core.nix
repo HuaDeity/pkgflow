@@ -41,88 +41,57 @@ let
     else
       { };
 
-  # On Darwin with darwinPackagesSource: filter packages by installation source
-  # Otherwise: install all packages via the default method
+  # Determine platform and settings
   isDarwin = pkgs.stdenv.isDarwin;
-  hasDarwinSources = isDarwin && (builtins.length cfg.darwinPackagesSource) > 0;
+  wantsBrew = isDarwin && builtins.elem "brew" cfg.darwinPackagesSource;
 
-  # Load homebrew mapping if needed
-  homebrewMapping =
-    if hasDarwinSources && builtins.elem "brew" cfg.darwinPackagesSource then
-      let
-        mapping = lib.importTOML cfg.homebrewMappingFile;
-      in
-      lib.listToAttrs (
-        lib.map (entry: {
-          name = entry.nix;
-          value = entry;
-        }) mapping.package
-      )
-    else
-      { };
-
-  # Check if a package can be installed via Homebrew
-  canInstallViaBrew =
-    name: attrs:
-    let
-      # Normalize package path for lookup
-      lookupKey =
-        attrs.flake or (
-          if builtins.isList attrs.pkg-path then
-            builtins.concatStringsSep "." attrs.pkg-path
-          else
-            attrs.pkg-path
-        );
-      brewInfo = homebrewMapping.${lookupKey} or null;
-    in
-    brewInfo != null && (brewInfo.brew or null) != null && (brewInfo.brew or null) != false;
-
-  # Filter packages by installation source (for Darwin only)
-  packagesBySource =
-    if !hasDarwinSources then
+  # Split packages into nix and brew categories
+  packageSplit =
+    if !wantsBrew then
+      # Not using brew: everything goes to nix
       {
-        all = manifestPackages;
+        nix = manifestPackages;
         brew = { };
-        system = { };
-        home = { };
       }
     else
+      # Using brew: filter by mapping
       let
-        wantsBrew = builtins.elem "brew" cfg.darwinPackagesSource;
-        wantsSystem = builtins.elem "system" cfg.darwinPackagesSource;
-        wantsHome = builtins.elem "home" cfg.darwinPackagesSource;
+        # Load homebrew mapping
+        mapping = lib.importTOML cfg.homebrewMappingFile;
+        homebrewMapping = lib.listToAttrs (
+          lib.map (entry: {
+            name = entry.nix;
+            value = entry;
+          }) mapping.package
+        );
 
-        # Categorize each package
-        categorize =
+        # Check if a package can be installed via Homebrew
+        canInstallViaBrew =
           name: attrs:
-          if wantsBrew && canInstallViaBrew name attrs then
-            "brew"
-          else if wantsSystem then
-            "system"
-          else if wantsHome then
-            "home"
-          else
-            null;
+          let
+            # Normalize package path for lookup
+            lookupKey =
+              attrs.flake or (
+                if builtins.isList attrs.pkg-path then
+                  builtins.concatStringsSep "." attrs.pkg-path
+                else
+                  attrs.pkg-path
+              );
+            brewInfo = homebrewMapping.${lookupKey} or null;
+          in
+          brewInfo != null && (brewInfo.brew or null) != null && (brewInfo.brew or null) != false;
 
-        categorized = lib.mapAttrs categorize manifestPackages;
-
-        filterByCategory =
-          category: lib.filterAttrs (name: _: (categorized.${name} or null) == category) manifestPackages;
+        # Filter packages
+        brewPackages = lib.filterAttrs canInstallViaBrew manifestPackages;
+        nixPackages = lib.filterAttrs (name: _: !canInstallViaBrew name manifestPackages.${name}) manifestPackages;
       in
       {
-        all = { };
-        brew = filterByCategory "brew";
-        system = filterByCategory "system";
-        home = filterByCategory "home";
+        nix = nixPackages;
+        brew = brewPackages;
       };
 
-  # Resolve packages for each category
-  resolvedPackages = {
-    all = pkgflowLib.processManifestPackages packagesBySource.all;
-    brew = packagesBySource.brew; # Keep unresolved for homebrew conversion
-    system = pkgflowLib.processManifestPackages packagesBySource.system;
-    home = pkgflowLib.processManifestPackages packagesBySource.home;
-  };
+  # Resolve nix packages (brew packages stay unresolved for homebrew module)
+  nixPackagesList = pkgflowLib.processManifestPackages packageSplit.nix;
 
   # Compute caches
   cacheResult = pkgflowLib.computeCaches {
@@ -149,19 +118,18 @@ in
       type = lib.types.listOf (lib.types.enum [ "system" "brew" "home" ]);
       default = [ ];
       description = ''
-        On Darwin only: List of package installation sources in priority order.
+        On Darwin only: List of package installation sources.
 
-        - "brew": Install via Homebrew (homebrew.brews/casks)
-        - "system": Install via Nix system packages (environment.systemPackages)
-        - "home": Install via home-manager (home.packages)
+        Options:
+        - "brew": Install via Homebrew (homebrew.brews/casks) - packages split by mapping
+        - "system": Install Nix packages via environment.systemPackages
+        - "home": Install Nix packages via home.packages
 
-        Packages are installed using the first matching source:
-        1. If "brew" is in the list and package supports Homebrew: install via brew
-        2. Otherwise if "system" is in the list: install via systemPackages
-        3. Otherwise if "home" is in the list: install via home.packages
+        Note: Cannot use both "system" and "home" together.
 
-        If a package cannot be installed via brew (brew = null/false in mapping),
-        it falls back to the next available source.
+        If "brew" is specified, packages are split:
+        - Packages that support brew (brew != null/false in mapping) → Homebrew
+        - Packages that don't support brew → Nix (via "system" or "home")
 
         If this list is empty (default), all packages are installed via the
         platform module's default method.
@@ -180,35 +148,19 @@ in
     };
 
     # Internal options - computed package lists for platform modules to use
-    _packages = lib.mkOption {
+    _nixPackages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
       internal = true;
       readOnly = true;
-      default = resolvedPackages.all;
-      description = "All packages (when not using darwinPackagesSource filtering)";
-    };
-
-    _systemPackages = lib.mkOption {
-      type = lib.types.listOf lib.types.package;
-      internal = true;
-      readOnly = true;
-      default = resolvedPackages.system;
-      description = "Packages to install via environment.systemPackages";
-    };
-
-    _homePackages = lib.mkOption {
-      type = lib.types.listOf lib.types.package;
-      internal = true;
-      readOnly = true;
-      default = resolvedPackages.home;
-      description = "Packages to install via home.packages";
+      default = nixPackagesList;
+      description = "Resolved Nix packages to install";
     };
 
     _brewPackages = lib.mkOption {
       type = lib.types.attrsOf lib.types.anything;
       internal = true;
       readOnly = true;
-      default = resolvedPackages.brew;
+      default = packageSplit.brew;
       description = "Unresolved packages to install via Homebrew";
     };
 
@@ -300,13 +252,26 @@ in
         {
           assertion =
             actualManifestFile == null
-            || !hasDarwinSources
+            || !wantsBrew
             || builtins.pathExists (toString cfg.homebrewMappingFile);
           message = ''
             pkgflow: Homebrew mapping file does not exist:
             ${toString cfg.homebrewMappingFile}
 
             Check that the path is correct and the file exists.
+          '';
+        }
+        {
+          assertion =
+            !(builtins.elem "system" cfg.darwinPackagesSource && builtins.elem "home" cfg.darwinPackagesSource);
+          message = ''
+            pkgflow: Cannot use both "system" and "home" in darwinPackagesSource.
+
+            Choose one:
+            - Use "system" to install via environment.systemPackages
+            - Use "home" to install via home.packages
+
+            You can combine either with "brew".
           '';
         }
       ];
