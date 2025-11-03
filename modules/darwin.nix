@@ -9,7 +9,7 @@
 
 let
   cfg = config.pkgflow;
-  coreModule = import ../core.nix;
+  coreModule = import ./pkgflow.nix;
 
   hasDarwinSources = (builtins.length cfg.darwinPackagesSource) > 0;
   wantsSystem = builtins.elem "system" cfg.darwinPackagesSource;
@@ -61,37 +61,33 @@ in
     coreModule
   ];
 
-  config =
-    let
-      manifestFile = if cfg.manifestFile != null then cfg.manifestFile else (cfg.manifest.file or null);
-    in
-    lib.mkMerge [
-      {
-        assertions = [
-          {
-            assertion = pkgs.stdenv.isDarwin;
-            message = ''
-              pkgflow (darwin module): This module is only for macOS/Darwin.
-              For other platforms, use nixosModules.default instead.
-            '';
-          }
-        ];
-      }
+  config = lib.mkMerge [
+    {
+      assertions = [
+        {
+          assertion = pkgs.stdenv.isDarwin;
+          message = ''
+            pkgflow (darwin module): This module is only for macOS/Darwin.
+            For other platforms, use nixosModules.default instead.
+          '';
+        }
+      ];
+    }
 
-      # Default behavior (no darwinPackagesSource): install all via systemPackages
-      (lib.mkIf (!hasDarwinSources && manifestFile != null) {
-        environment.systemPackages = cfg._nixPackages;
-      })
+    # Default behavior (no darwinPackagesSource): install all via systemPackages
+    (lib.mkIf (!hasDarwinSources && cfg.manifestFile != null) {
+      environment.systemPackages = cfg._nixPackages;
+    })
 
-      # Install Nix packages via systemPackages (when "system" in darwinPackagesSource)
-      (lib.mkIf wantsSystem {
-        environment.systemPackages = cfg._nixPackages;
-      })
+    # Install Nix packages via systemPackages (when "system" in darwinPackagesSource)
+    (lib.mkIf wantsSystem {
+      environment.systemPackages = cfg._nixPackages;
+    })
 
-      # Install via Homebrew (when "brew" in darwinPackagesSource)
-      (lib.mkIf wantsBrew {
-        homebrew.brews = lib.map formatBrew formulas;
-        homebrew.casks = lib.map (p: p.brew) casks;
-      })
-    ];
+    # Install via Homebrew (when "brew" in darwinPackagesSource)
+    (lib.mkIf wantsBrew {
+      homebrew.brews = lib.map formatBrew formulas;
+      homebrew.casks = lib.map (p: p.brew) casks;
+    })
+  ];
 }

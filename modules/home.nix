@@ -9,7 +9,7 @@
 
 let
   cfg = config.pkgflow;
-  coreModule = import ../core.nix;
+  coreModule = import ./pkgflow.nix;
 
   isDarwin = pkgs.stdenv.isDarwin;
   wantsHome = builtins.elem "home" cfg.darwinPackagesSource;
@@ -24,12 +24,11 @@ in
 
   config =
     let
-      manifestFile = if cfg.manifestFile != null then cfg.manifestFile else (cfg.manifest.file or null);
       cacheEnabled = cfg.caches.enable or false;
     in
     lib.mkMerge [
       # Install packages
-      (lib.mkIf (manifestFile != null && shouldInstall) {
+      (lib.mkIf (cfg.manifestFile != null && shouldInstall) {
         home.packages = cfg._nixPackages;
       })
 

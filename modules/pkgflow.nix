@@ -10,7 +10,7 @@
 
 let
   # Import pkgflow lib functions
-  pkgflowLib = import ./lib {
+  pkgflowLib = import ../lib {
     inherit lib pkgs inputs;
   };
 

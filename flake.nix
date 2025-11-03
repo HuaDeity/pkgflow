@@ -4,31 +4,20 @@
   outputs =
     { ... }:
     {
-      # Shared module (defines manifest.file option)
-      sharedModules.default = ./shared.nix;
-
       # NixOS modules
-      nixosModules = {
-        default = ./modules/nixos.nix;
-        nixos = ./modules/nixos.nix;
+      nixosModules = rec {
+        pkgflow = ./modules/nixos.nix;
+        default = pkgflow;
       };
 
-      # nix-darwin modules
-      darwinModules = {
-        default = ./modules/darwin.nix;
-        darwin = ./modules/darwin.nix;
-        # Legacy homebrew-only module (deprecated)
-        homebrew = ./homebrew.nix;
+      darwinModules = rec {
+        pkgflow = ./modules/darwin.nix;
+        default = pkgflow;
       };
 
-      # home-manager modules
-      homeModules = {
-        default = ./modules/home.nix;
-        home = ./modules/home.nix;
+      homeManagerModules = rec {
+        pkgflow = ./modules/home.nix;
+        default = pkgflow;
       };
-
-      # Backward compatibility aliases
-      nixModules.default = ./modules/home.nix; # Old unified module
-      brewModules.default = ./homebrew.nix; # Old homebrew module
     };
 }

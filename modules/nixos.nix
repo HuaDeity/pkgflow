@@ -8,14 +8,14 @@
 
 let
   cfg = config.pkgflow;
-  coreModule = import ../core.nix;
+  coreModule = import ./pkgflow.nix;
 in
 {
   imports = [
     coreModule
   ];
 
-  config = lib.mkIf (cfg.manifestFile != null || (cfg ? manifest && cfg.manifest.file != null)) {
+  config = lib.mkIf (cfg.manifestFile != null) {
     environment.systemPackages = cfg._packages;
   };
 }
