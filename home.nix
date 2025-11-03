@@ -232,71 +232,9 @@ in
         manifestFile = actualManifestFile;
       };
 
-      # Cache configuration
-      cacheCfg = config.pkgflow.caches;
-
       # Detect context
       isHomeManager = options ? home.packages;
       isSystem = !isHomeManager && (options ? environment.systemPackages);
-
-      # Process cache configuration if enabled
-      cacheSettings =
-        if actualManifestFile != null && (cacheCfg.enable || cacheCfg.onlyTrusted) then
-          let
-            # Reuse loadManifest function to get system-filtered packages
-            systemFilteredPackages = loadManifest actualManifestFile cfg.requireSystemMatch;
-
-            # Get flake packages that match the current system
-            flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
-
-            # Extract flake references from packages
-            flakeRefs = lib.mapAttrsToList (_name: attrs: attrs.flake) flakePackages;
-
-            # Match flake packages against cache mapping
-            matchedCaches = lib.filter (
-              cache: builtins.elem cache.flake flakeRefs
-            ) cacheCfg.mapping;
-
-            # Auto-detect nix-community flakes
-            hasNixCommunityFlake = lib.any (
-              flakeRef: lib.hasPrefix "github:nix-community/" flakeRef
-            ) flakeRefs;
-
-            # Determine if we should add nix-community cache
-            # null (default): add only if detected
-            # true: always add
-            # false: never add
-            shouldAddNixCommunity =
-              if cacheCfg.addNixCommunity == null then
-                hasNixCommunityFlake
-              else
-                cacheCfg.addNixCommunity;
-
-            # Add nix-community cache based on shouldAddNixCommunity
-            nixCommunityCaches = lib.optionals shouldAddNixCommunity [
-              {
-                substituter = "https://nix-community.cachix.org";
-                trustedKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
-              }
-            ];
-
-            # Combine matched caches with nix-community cache
-            allCaches = matchedCaches ++ nixCommunityCaches;
-
-            # Extract substituters and keys
-            substituters = lib.unique (map (cache: cache.substituter) allCaches);
-            trustedKeys = lib.unique (map (cache: cache.trustedKey) allCaches);
-          in
-          {
-            inherit substituters trustedKeys;
-            hasMatches = (builtins.length allCaches) > 0;
-          }
-        else
-          {
-            substituters = [ ];
-            trustedKeys = [ ];
-            hasMatches = false;
-          };
     in
     lib.mkMerge [
       # Validation assertions
@@ -347,28 +285,75 @@ in
       })
 
       # Binary cache configuration
-      # System context with onlyTrusted: set trusted-substituters and trusted-public-keys
-      (lib.optionalAttrs (isSystem && cacheCfg.onlyTrusted && cacheSettings.hasMatches) {
-        nix.settings = {
-          trusted-substituters = cacheSettings.substituters;
-          trusted-public-keys = cacheSettings.trustedKeys;
-        };
-      })
+      # Only compute when actualManifestFile exists to avoid infinite recursion
+      (lib.mkIf (actualManifestFile != null) (
+        let
+          cacheCfg = config.pkgflow.caches;
 
-      # System context with enable (not onlyTrusted): set substituters and trusted-public-keys
-      (lib.optionalAttrs (isSystem && cacheCfg.enable && !cacheCfg.onlyTrusted && cacheSettings.hasMatches) {
-        nix.settings = {
-          substituters = cacheSettings.substituters;
-          trusted-public-keys = cacheSettings.trustedKeys;
-        };
-      })
+          # Compute cache settings
+          systemFilteredPackages = loadManifest actualManifestFile cfg.requireSystemMatch;
+          flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
+          flakeRefs = lib.mapAttrsToList (_name: attrs: attrs.flake) flakePackages;
 
-      # Home-manager context with enable: set substituters and trusted-public-keys
-      (lib.optionalAttrs (isHomeManager && cacheCfg.enable && cacheSettings.hasMatches) {
-        nix.settings = {
-          substituters = cacheSettings.substituters;
-          trusted-public-keys = cacheSettings.trustedKeys;
-        };
-      })
+          # Match flake packages against cache mapping
+          matchedCaches = lib.filter (
+            cache: builtins.elem cache.flake flakeRefs
+          ) cacheCfg.mapping;
+
+          # Auto-detect nix-community flakes
+          hasNixCommunityFlake = lib.any (
+            flakeRef: lib.hasPrefix "github:nix-community/" flakeRef
+          ) flakeRefs;
+
+          # Determine if we should add nix-community cache
+          shouldAddNixCommunity =
+            if cacheCfg.addNixCommunity == null then
+              hasNixCommunityFlake
+            else
+              cacheCfg.addNixCommunity;
+
+          # Add nix-community cache based on shouldAddNixCommunity
+          nixCommunityCaches = lib.optionals shouldAddNixCommunity [
+            {
+              substituter = "https://nix-community.cachix.org";
+              trustedKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
+            }
+          ];
+
+          # Combine matched caches with nix-community cache
+          allCaches = matchedCaches ++ nixCommunityCaches;
+
+          # Extract substituters and keys
+          substituters = lib.unique (map (cache: cache.substituter) allCaches);
+          trustedKeys = lib.unique (map (cache: cache.trustedKey) allCaches);
+
+          hasMatches = (builtins.length allCaches) > 0;
+        in
+        lib.mkMerge [
+          # System context with onlyTrusted: set trusted-substituters and trusted-public-keys
+          (lib.mkIf (isSystem && cacheCfg.onlyTrusted && hasMatches) {
+            nix.settings = {
+              trusted-substituters = substituters;
+              trusted-public-keys = trustedKeys;
+            };
+          })
+
+          # System context with enable (not onlyTrusted): set substituters and trusted-public-keys
+          (lib.mkIf (isSystem && cacheCfg.enable && !cacheCfg.onlyTrusted && hasMatches) {
+            nix.settings = {
+              substituters = substituters;
+              trusted-public-keys = trustedKeys;
+            };
+          })
+
+          # Home-manager context with enable: set substituters and trusted-public-keys
+          (lib.mkIf (isHomeManager && cacheCfg.enable && hasMatches) {
+            nix.settings = {
+              substituters = substituters;
+              trusted-public-keys = trustedKeys;
+            };
+          })
+        ]
+      ))
     ];
 }
