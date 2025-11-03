@@ -99,7 +99,7 @@ pkgflow can automatically configure binary caches (substituters) and trusted pub
 
 When enabled, pkgflow:
 1. Reads your manifest to find flake packages
-2. Auto-detects `github:nix-community/*` flakes and adds nix-community.cachix.org (see `autoAddNixCommunity` option)
+2. Auto-detects `github:nix-community/*` flakes and adds nix-community.cachix.org (see `addNixCommunity` option)
 3. Matches other flakes against the cache mapping in `config/caches.nix`
 4. Automatically sets `nix.settings.substituters` and `nix.settings.trusted-public-keys`
 5. Only configures caches for packages that match your current system
@@ -110,7 +110,7 @@ When enabled, pkgflow:
 pkgflow.caches = {
   enable = false;              # Enable binary cache configuration
   onlyTrusted = false;         # System-only: Set only trusted-* settings
-  autoAddNixCommunity = null;  # null=auto-detect, true=always, false=never
+  addNixCommunity = null;      # null=auto-detect, true=always, false=never
   mapping = [ ... ];           # Override default cache mappings
 };
 ```
@@ -119,7 +119,7 @@ pkgflow.caches = {
 |--------|------|---------|-------------|
 | `enable` | bool | `false` | Enable binary cache configuration |
 | `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters and trusted-public-keys (useful for non-trusted users) |
-| `autoAddNixCommunity` | bool\|null | `null` | **null**: Auto-detect nix-community flakes and add cache if found<br>**true**: Always add nix-community cache<br>**false**: Never add nix-community cache |
+| `addNixCommunity` | bool\|null | `null` | **null**: Auto-detect nix-community flakes and add cache if found<br>**true**: Always add nix-community cache<br>**false**: Never add nix-community cache |
 | `mapping` | list | `config/caches.nix` | Cache mappings (flake → substituter + key) |
 
 ### Installation Scenarios
@@ -179,7 +179,7 @@ pkgflow includes default mappings for popular flake caches in `config/caches.nix
 ]
 ```
 
-**Note:** By default (`autoAddNixCommunity = null`), `github:nix-community/*` flakes are automatically detected and configured to use `nix-community.cachix.org`. Set to `false` to disable, or `true` to always add regardless of detection.
+**Note:** By default (`addNixCommunity = null`), `github:nix-community/*` flakes are automatically detected and configured to use `nix-community.cachix.org`. Set to `false` to disable, or `true` to always add regardless of detection.
 
 ### Custom Cache Mappings
 
@@ -284,7 +284,7 @@ mihomo.systems = ["aarch64-linux", "x86_64-linux"]
 pkgflow.caches = {
   enable = true;                       # Enable cache configuration
   onlyTrusted = false;                 # System-only: trusted settings
-  autoAddNixCommunity = null;          # null=auto-detect, true=always, false=never
+  addNixCommunity = null;              # null=auto-detect, true=always, false=never
   mapping = import ./config/caches.nix; # Cache mappings
 };
 ```
@@ -293,7 +293,7 @@ pkgflow.caches = {
 |--------|------|---------|-------------|
 | `enable` | bool | `false` | Enable binary cache configuration |
 | `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters/keys |
-| `autoAddNixCommunity` | bool\|null | `null` | **null**: auto-detect, **true**: always add, **false**: never add |
+| `addNixCommunity` | bool\|null | `null` | **null**: auto-detect, **true**: always add, **false**: never add |
 | `mapping` | list | `./config/caches.nix` | Flake → cache mappings |
 
 See [Binary Cache Support](#binary-cache-support) for detailed documentation.

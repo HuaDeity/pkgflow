@@ -153,7 +153,7 @@ in
       '';
     };
 
-    autoAddNixCommunity = lib.mkOption {
+    addNixCommunity = lib.mkOption {
       type = lib.types.nullOr lib.types.bool;
       default = null;
       description = ''
@@ -267,10 +267,10 @@ in
             # true: always add
             # false: never add
             shouldAddNixCommunity =
-              if cacheCfg.autoAddNixCommunity == null then
+              if cacheCfg.addNixCommunity == null then
                 hasNixCommunityFlake
               else
-                cacheCfg.autoAddNixCommunity;
+                cacheCfg.addNixCommunity;
 
             # Add nix-community cache based on shouldAddNixCommunity
             nixCommunityCaches = lib.optionals shouldAddNixCommunity [

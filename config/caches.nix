@@ -2,7 +2,7 @@
 # Users can override this by setting pkgflow.caches.mapping in their configuration
 #
 # Note: github:nix-community/* flakes are automatically detected and use nix-community.cachix.org
-# by default (controlled by pkgflow.caches.autoAddNixCommunity option)
+# by default (controlled by pkgflow.caches.addNixCommunity option)
 [
   {
     flake = "github:helix-editor/helix";
