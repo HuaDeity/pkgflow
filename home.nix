@@ -118,6 +118,74 @@ in
     };
   };
 
+  options.pkgflow.caches = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Enable binary cache configuration from flake packages.
+        When enabled, sets nix.settings.substituters and nix.settings.trusted-public-keys
+        based on the flake packages in the manifest.
+      '';
+    };
+
+    onlyTrusted = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Only set trusted-substituters and trusted-public-keys (system level only).
+        Useful when you want to configure trust at system level but let home-manager handle substituters.
+
+        Context behavior:
+        - System context with onlyTrusted=true: Sets trusted-substituters and trusted-public-keys
+        - System context with onlyTrusted=false + enable=true: Sets substituters and trusted-public-keys
+        - Home context: onlyTrusted is ignored, enable controls everything
+
+        This is useful for non-trusted users who need system-level trust configuration.
+      '';
+    };
+
+    mapping = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.submodule {
+          options = {
+            flake = lib.mkOption {
+              type = lib.types.str;
+              description = "Flake reference (e.g., github:helix-editor/helix)";
+              example = "github:helix-editor/helix";
+            };
+            substituter = lib.mkOption {
+              type = lib.types.str;
+              description = "Binary cache URL";
+              example = "https://helix.cachix.org";
+            };
+            trustedKey = lib.mkOption {
+              type = lib.types.str;
+              description = "Public key for the binary cache";
+              example = "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs=";
+            };
+          };
+        }
+      );
+      default = import ./config/caches.nix;
+      description = ''
+        Mapping of flake references to binary caches and trusted keys.
+        Defaults to ./config/caches.nix.
+
+        Users can override or extend this list in their configuration.
+      '';
+      example = lib.literalExpression ''
+        [
+          {
+            flake = "github:helix-editor/helix";
+            substituter = "https://helix.cachix.org";
+            trustedKey = "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs=";
+          }
+        ]
+      '';
+    };
+  };
+
   config =
     let
       # Check if shared options exist
@@ -138,6 +206,57 @@ in
       manifestCfg = cfg // {
         manifestFile = actualManifestFile;
       };
+
+      # Cache configuration
+      cacheCfg = config.pkgflow.caches;
+
+      # Detect context
+      isHomeManager = options ? home.packages;
+      isSystem = !isHomeManager && (options ? environment.systemPackages);
+
+      # Process cache configuration if enabled
+      cacheSettings =
+        if actualManifestFile != null && (cacheCfg.enable || cacheCfg.onlyTrusted) then
+          let
+            manifest = lib.importTOML actualManifestFile;
+            packages = manifest.install or { };
+
+            # System matching logic (same as processManifest)
+            systemMatches =
+              attrs:
+              if attrs ? systems then
+                lib.elem pkgs.system attrs.systems
+              else
+                !cfg.requireSystemMatch;
+
+            # Filter packages by system
+            systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
+
+            # Get flake packages that match the current system
+            flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
+
+            # Extract flake references from packages
+            flakeRefs = lib.mapAttrsToList (_name: attrs: attrs.flake) flakePackages;
+
+            # Match flake packages against cache mapping
+            matchedCaches = lib.filter (
+              cache: builtins.elem cache.flake flakeRefs
+            ) cacheCfg.mapping;
+
+            # Extract substituters and keys
+            substituters = lib.unique (map (cache: cache.substituter) matchedCaches);
+            trustedKeys = lib.unique (map (cache: cache.trustedKey) matchedCaches);
+          in
+          {
+            inherit substituters trustedKeys;
+            hasMatches = (builtins.length matchedCaches) > 0;
+          }
+        else
+          {
+            substituters = [ ];
+            trustedKeys = [ ];
+            hasMatches = false;
+          };
     in
     lib.mkMerge [
       # Validation assertions
@@ -185,6 +304,31 @@ in
       })
       (lib.optionalAttrs (!(options ? home.packages) && options ? environment.systemPackages) {
         environment.systemPackages = processManifest manifestCfg;
+      })
+
+      # Binary cache configuration
+      # System context with onlyTrusted: set trusted-substituters and trusted-public-keys
+      (lib.optionalAttrs (isSystem && cacheCfg.onlyTrusted && cacheSettings.hasMatches) {
+        nix.settings = {
+          trusted-substituters = cacheSettings.substituters;
+          trusted-public-keys = cacheSettings.trustedKeys;
+        };
+      })
+
+      # System context with enable (not onlyTrusted): set substituters and trusted-public-keys
+      (lib.optionalAttrs (isSystem && cacheCfg.enable && !cacheCfg.onlyTrusted && cacheSettings.hasMatches) {
+        nix.settings = {
+          substituters = cacheSettings.substituters;
+          trusted-public-keys = cacheSettings.trustedKeys;
+        };
+      })
+
+      # Home-manager context with enable: set substituters and trusted-public-keys
+      (lib.optionalAttrs (isHomeManager && cacheCfg.enable && cacheSettings.hasMatches) {
+        nix.settings = {
+          substituters = cacheSettings.substituters;
+          trusted-public-keys = cacheSettings.trustedKeys;
+        };
       })
     ];
 }

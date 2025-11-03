@@ -9,6 +9,7 @@ Universal package manifest transformer for Nix. Transform between Flox manifests
 - 🖥️ **NixOS/Darwin support** - Install to `environment.systemPackages`
 - 🍺 **Homebrew integration** - Convert Nix packages to Homebrew on macOS
 - 🔄 **Flake package resolution** - Support for flake-based packages in manifests
+- 🔐 **Binary cache support** - Automatic substituter and trusted-public-keys configuration
 - 🎯 **System filtering** - Smart filtering by compatible systems
 - 🚀 **Zero configuration** - Import and go, no `enable` switches needed
 - 🧠 **Context-aware** - Automatically detects home-manager vs system context
@@ -90,6 +91,136 @@ pkgflow provides 3 simple, independent module outputs:
 }
 ```
 
+## Binary Cache Support
+
+pkgflow can automatically configure binary caches (substituters) and trusted public keys for flake packages in your manifest. This is especially useful for Cachix caches and other binary cache services.
+
+### How It Works
+
+When enabled, pkgflow:
+1. Reads your manifest to find flake packages
+2. Matches them against the cache mapping in `config/caches.nix`
+3. Automatically sets `nix.settings.substituters` and `nix.settings.trusted-public-keys`
+4. Only configures caches for packages that match your current system
+
+### Configuration Options
+
+```nix
+pkgflow.caches = {
+  enable = false;          # Enable binary cache configuration
+  onlyTrusted = false;     # System-only: Set only trusted-* settings
+  mapping = [ ... ];       # Override default cache mappings
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | bool | `false` | Enable binary cache configuration |
+| `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters and trusted-public-keys (useful for non-trusted users) |
+| `mapping` | list | `config/caches.nix` | Cache mappings (flake → substituter + key) |
+
+### Installation Scenarios
+
+**Scenario 1: System (trusted only) + Home (full config)**
+
+Best for systems where users are not in `trusted-users`:
+
+```nix
+# system configuration (NixOS/nix-darwin)
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  pkgflow.caches.onlyTrusted = true;  # Set trusted-substituters and trusted-public-keys
+}
+
+# home-manager configuration
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  pkgflow.manifest.file = ./manifest.toml;
+  pkgflow.caches.enable = true;  # Set substituters and trusted-public-keys
+}
+```
+
+**Scenario 2: System only (full config + packages)**
+
+```nix
+# system configuration
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  pkgflow.manifest.file = ./manifest.toml;
+  pkgflow.caches.enable = true;  # Set substituters and trusted-public-keys at system level
+}
+```
+
+**Scenario 3: Home-manager only (full config + packages)**
+
+```nix
+# home-manager configuration
+{
+  imports = [ inputs.pkgflow.nixModules.default ];
+  pkgflow.manifest.file = ./manifest.toml;
+  pkgflow.caches.enable = true;  # Set substituters and trusted-public-keys at home level
+}
+```
+
+### Default Cache Mappings
+
+pkgflow includes default mappings for popular flake caches in `config/caches.nix`:
+
+```nix
+[
+  {
+    flake = "github:helix-editor/helix";
+    substituter = "https://helix.cachix.org";
+    trustedKey = "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs=";
+  }
+  {
+    flake = "github:nix-community/neovim-nightly-overlay";
+    substituter = "https://neovim-nightly.cachix.org";
+    trustedKey = "neovim-nightly.cachix.org-1:feIoInHRevVEplgdZvQDjhp11kYASYCE2NGY9hNrwxY=";
+  }
+]
+```
+
+### Custom Cache Mappings
+
+You can override or extend the default mappings:
+
+```nix
+{
+  pkgflow.caches = {
+    enable = true;
+    mapping = [
+      # Add your custom caches
+      {
+        flake = "github:myorg/myflake";
+        substituter = "https://mycache.example.com";
+        trustedKey = "mycache.example.com-1:xxxxx";
+      }
+      # Or include defaults and add more
+    ] ++ (import "${inputs.pkgflow}/config/caches.nix");
+  };
+}
+```
+
+### Example Manifest
+
+```toml
+version = 1
+
+[install]
+# Regular nixpkgs packages (no cache configuration needed)
+git.pkg-path = "git"
+
+# Flake packages (cache automatically configured if in mapping)
+helix.flake = "github:helix-editor/helix"
+helix.systems = ["aarch64-darwin", "x86_64-linux"]
+
+neovim-nightly-overlay.flake = "github:nix-community/neovim-nightly-overlay"
+neovim-nightly-overlay.systems = ["aarch64-darwin", "x86_64-linux"]
+```
+
+When `pkgflow.caches.enable = true`, the Helix and Neovim Nightly caches are automatically configured based on the mappings in `config/caches.nix`.
+
 ## Configuration Options
 
 ### `pkgflow.manifest` (Shared)
@@ -143,6 +274,24 @@ helix.systems = ["aarch64-darwin", "x86_64-linux"]
 mihomo.pkg-path = "mihomo"
 mihomo.systems = ["aarch64-linux", "x86_64-linux"]
 ```
+
+### `pkgflow.caches` (Binary Caches)
+
+```nix
+pkgflow.caches = {
+  enable = true;                       # Enable cache configuration
+  onlyTrusted = false;                 # System-only: trusted settings
+  mapping = import ./config/caches.nix; # Cache mappings
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | bool | `false` | Enable binary cache configuration |
+| `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters/keys |
+| `mapping` | list | `./config/caches.nix` | Flake → cache mappings |
+
+See [Binary Cache Support](#binary-cache-support) for detailed documentation.
 
 ### `pkgflow.homebrewManifest` (Darwin only)
 
