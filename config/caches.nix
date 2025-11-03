@@ -8,7 +8,7 @@
   }
   {
     flake = "github:nix-community/neovim-nightly-overlay";
-    substituter = "https://neovim-nightly.cachix.org";
-    trustedKey = "neovim-nightly.cachix.org-1:feIoInHRevVEplgdZvQDjhp11kYASYCE2NGY9hNrwxY=";
+    substituter = "https://nix-community.cachix.org";
+    trustedKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
   }
 ]

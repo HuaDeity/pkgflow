@@ -12,30 +12,38 @@
 let
   cfg = config.pkgflow.manifestPackages;
 
+  # Load and filter manifest packages by system
+  # Returns an attrset of packages that match the current system
+  loadManifest =
+    manifestFile: requireSystemMatch:
+    if manifestFile == null then
+      { }
+    else
+      let
+        manifest = lib.importTOML manifestFile;
+        packages = manifest.install or { };
+
+        # System matching logic
+        # Always respect systems attribute when present (don't install unsupported packages)
+        # requireSystemMatch only controls packages WITHOUT systems attribute:
+        #   - false: Include packages without systems attribute
+        #   - true: Exclude packages without systems attribute
+        systemMatches =
+          attrs:
+          if attrs ? systems then
+            # If package has systems attribute, always check if current system is supported
+            lib.elem pkgs.system attrs.systems
+          else
+            # Package has no systems attribute - use requireSystemMatch to decide
+            !requireSystemMatch;
+      in
+      lib.filterAttrs (_: systemMatches) packages;
+
+  # Process manifest and resolve packages
   processManifest =
     manifestCfg:
     let
-      manifestFile = manifestCfg.manifestFile;
-
-      manifest = if manifestFile != null then lib.importTOML manifestFile else { };
-
-      packages = manifest.install or { };
-
-      # System matching logic
-      # Always respect systems attribute when present (don't install unsupported packages)
-      # requireSystemMatch only controls packages WITHOUT systems attribute:
-      #   - false: Include packages without systems attribute
-      #   - true: Exclude packages without systems attribute
-      systemMatches =
-        attrs:
-        if attrs ? systems then
-          # If package has systems attribute, always check if current system is supported
-          lib.elem pkgs.system attrs.systems
-        else
-          # Package has no systems attribute - use requireSystemMatch to decide
-          !manifestCfg.requireSystemMatch;
-
-      systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
+      systemFilteredPackages = loadManifest manifestCfg.manifestFile manifestCfg.requireSystemMatch;
 
       # Unified package resolution
       resolvePackage =
@@ -218,19 +226,8 @@ in
       cacheSettings =
         if actualManifestFile != null && (cacheCfg.enable || cacheCfg.onlyTrusted) then
           let
-            manifest = lib.importTOML actualManifestFile;
-            packages = manifest.install or { };
-
-            # System matching logic (same as processManifest)
-            systemMatches =
-              attrs:
-              if attrs ? systems then
-                lib.elem pkgs.system attrs.systems
-              else
-                !cfg.requireSystemMatch;
-
-            # Filter packages by system
-            systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
+            # Reuse loadManifest function to get system-filtered packages
+            systemFilteredPackages = loadManifest actualManifestFile cfg.requireSystemMatch;
 
             # Get flake packages that match the current system
             flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
