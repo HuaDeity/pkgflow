@@ -4,13 +4,31 @@
   outputs =
     { ... }:
     {
-      # Shared module (just defines options, no imports)
+      # Shared module (defines manifest.file option)
       sharedModules.default = ./shared.nix;
 
-      # Unified nix module (auto-detects home-manager vs system context)
-      nixModules.default = ./home.nix;
+      # NixOS modules
+      nixosModules = {
+        default = ./modules/nixos.nix;
+        nixos = ./modules/nixos.nix;
+      };
 
-      # Homebrew module (for Darwin homebrew.brews/casks)
-      brewModules.default = ./darwin.nix;
+      # nix-darwin modules
+      darwinModules = {
+        default = ./modules/darwin.nix;
+        darwin = ./modules/darwin.nix;
+        # Legacy homebrew-only module (deprecated)
+        homebrew = ./homebrew.nix;
+      };
+
+      # home-manager modules
+      homeModules = {
+        default = ./modules/home.nix;
+        home = ./modules/home.nix;
+      };
+
+      # Backward compatibility aliases
+      nixModules.default = ./modules/home.nix; # Old unified module
+      brewModules.default = ./homebrew.nix; # Old homebrew module
     };
 }
