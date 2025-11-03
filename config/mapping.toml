@@ -8,6 +8,11 @@ brew = "claude-code"
 type = "cask"
 
 [[package]]
+nix = "codex"
+brew = "codex"
+type = "cask"
+
+[[package]]
 nix = "delta"
 brew = "git-delta"
 
