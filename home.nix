@@ -12,30 +12,38 @@
 let
   cfg = config.pkgflow.manifestPackages;
 
+  # Load and filter manifest packages by system
+  # Returns an attrset of packages that match the current system
+  loadManifest =
+    manifestFile: requireSystemMatch:
+    if manifestFile == null then
+      { }
+    else
+      let
+        manifest = lib.importTOML manifestFile;
+        packages = manifest.install or { };
+
+        # System matching logic
+        # Always respect systems attribute when present (don't install unsupported packages)
+        # requireSystemMatch only controls packages WITHOUT systems attribute:
+        #   - false: Include packages without systems attribute
+        #   - true: Exclude packages without systems attribute
+        systemMatches =
+          attrs:
+          if attrs ? systems then
+            # If package has systems attribute, always check if current system is supported
+            lib.elem pkgs.system attrs.systems
+          else
+            # Package has no systems attribute - use requireSystemMatch to decide
+            !requireSystemMatch;
+      in
+      lib.filterAttrs (_: systemMatches) packages;
+
+  # Process manifest and resolve packages
   processManifest =
     manifestCfg:
     let
-      manifestFile = manifestCfg.manifestFile;
-
-      manifest = if manifestFile != null then lib.importTOML manifestFile else { };
-
-      packages = manifest.install or { };
-
-      # System matching logic
-      # Always respect systems attribute when present (don't install unsupported packages)
-      # requireSystemMatch only controls packages WITHOUT systems attribute:
-      #   - false: Include packages without systems attribute
-      #   - true: Exclude packages without systems attribute
-      systemMatches =
-        attrs:
-        if attrs ? systems then
-          # If package has systems attribute, always check if current system is supported
-          lib.elem pkgs.system attrs.systems
-        else
-          # Package has no systems attribute - use requireSystemMatch to decide
-          !manifestCfg.requireSystemMatch;
-
-      systemFilteredPackages = lib.filterAttrs (_: systemMatches) packages;
+      systemFilteredPackages = loadManifest manifestCfg.manifestFile manifestCfg.requireSystemMatch;
 
       # Unified package resolution
       resolvePackage =
@@ -118,6 +126,91 @@ in
     };
   };
 
+  options.pkgflow.caches = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Enable binary cache configuration from flake packages.
+        When enabled, sets nix.settings.substituters and nix.settings.trusted-public-keys
+        based on the flake packages in the manifest.
+      '';
+    };
+
+    onlyTrusted = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Only set trusted-substituters and trusted-public-keys (system level only).
+        Useful when you want to configure trust at system level but let home-manager handle substituters.
+
+        Context behavior:
+        - System context with onlyTrusted=true: Sets trusted-substituters and trusted-public-keys
+        - System context with onlyTrusted=false + enable=true: Sets substituters and trusted-public-keys
+        - Home context: onlyTrusted is ignored, enable controls everything
+
+        This is useful for non-trusted users who need system-level trust configuration.
+      '';
+    };
+
+    addNixCommunity = lib.mkOption {
+      type = lib.types.nullOr lib.types.bool;
+      default = null;
+      description = ''
+        Control nix-community.cachix.org cache for github:nix-community/* flakes.
+
+        Behavior:
+        - null (default): Auto-detect - add cache only if nix-community flakes are found
+        - true: Always add nix-community cache, regardless of whether flakes are detected
+        - false: Never add nix-community cache, even if nix-community flakes exist
+
+        Cache details:
+        - substituter: https://nix-community.cachix.org
+        - trusted-key: nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+      '';
+    };
+
+    mapping = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.submodule {
+          options = {
+            flake = lib.mkOption {
+              type = lib.types.str;
+              description = "Flake reference (e.g., github:helix-editor/helix)";
+              example = "github:helix-editor/helix";
+            };
+            substituter = lib.mkOption {
+              type = lib.types.str;
+              description = "Binary cache URL";
+              example = "https://helix.cachix.org";
+            };
+            trustedKey = lib.mkOption {
+              type = lib.types.str;
+              description = "Public key for the binary cache";
+              example = "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs=";
+            };
+          };
+        }
+      );
+      default = import ./config/caches.nix;
+      description = ''
+        Mapping of flake references to binary caches and trusted keys.
+        Defaults to ./config/caches.nix.
+
+        Users can override or extend this list in their configuration.
+      '';
+      example = lib.literalExpression ''
+        [
+          {
+            flake = "github:helix-editor/helix";
+            substituter = "https://helix.cachix.org";
+            trustedKey = "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs=";
+          }
+        ]
+      '';
+    };
+  };
+
   config =
     let
       # Check if shared options exist
@@ -138,6 +231,72 @@ in
       manifestCfg = cfg // {
         manifestFile = actualManifestFile;
       };
+
+      # Cache configuration
+      cacheCfg = config.pkgflow.caches;
+
+      # Detect context
+      isHomeManager = options ? home.packages;
+      isSystem = !isHomeManager && (options ? environment.systemPackages);
+
+      # Process cache configuration if enabled
+      cacheSettings =
+        if actualManifestFile != null && (cacheCfg.enable || cacheCfg.onlyTrusted) then
+          let
+            # Reuse loadManifest function to get system-filtered packages
+            systemFilteredPackages = loadManifest actualManifestFile cfg.requireSystemMatch;
+
+            # Get flake packages that match the current system
+            flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
+
+            # Extract flake references from packages
+            flakeRefs = lib.mapAttrsToList (_name: attrs: attrs.flake) flakePackages;
+
+            # Match flake packages against cache mapping
+            matchedCaches = lib.filter (
+              cache: builtins.elem cache.flake flakeRefs
+            ) cacheCfg.mapping;
+
+            # Auto-detect nix-community flakes
+            hasNixCommunityFlake = lib.any (
+              flakeRef: lib.hasPrefix "github:nix-community/" flakeRef
+            ) flakeRefs;
+
+            # Determine if we should add nix-community cache
+            # null (default): add only if detected
+            # true: always add
+            # false: never add
+            shouldAddNixCommunity =
+              if cacheCfg.addNixCommunity == null then
+                hasNixCommunityFlake
+              else
+                cacheCfg.addNixCommunity;
+
+            # Add nix-community cache based on shouldAddNixCommunity
+            nixCommunityCaches = lib.optionals shouldAddNixCommunity [
+              {
+                substituter = "https://nix-community.cachix.org";
+                trustedKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
+              }
+            ];
+
+            # Combine matched caches with nix-community cache
+            allCaches = matchedCaches ++ nixCommunityCaches;
+
+            # Extract substituters and keys
+            substituters = lib.unique (map (cache: cache.substituter) allCaches);
+            trustedKeys = lib.unique (map (cache: cache.trustedKey) allCaches);
+          in
+          {
+            inherit substituters trustedKeys;
+            hasMatches = (builtins.length allCaches) > 0;
+          }
+        else
+          {
+            substituters = [ ];
+            trustedKeys = [ ];
+            hasMatches = false;
+          };
     in
     lib.mkMerge [
       # Validation assertions
@@ -185,6 +344,31 @@ in
       })
       (lib.optionalAttrs (!(options ? home.packages) && options ? environment.systemPackages) {
         environment.systemPackages = processManifest manifestCfg;
+      })
+
+      # Binary cache configuration
+      # System context with onlyTrusted: set trusted-substituters and trusted-public-keys
+      (lib.optionalAttrs (isSystem && cacheCfg.onlyTrusted && cacheSettings.hasMatches) {
+        nix.settings = {
+          trusted-substituters = cacheSettings.substituters;
+          trusted-public-keys = cacheSettings.trustedKeys;
+        };
+      })
+
+      # System context with enable (not onlyTrusted): set substituters and trusted-public-keys
+      (lib.optionalAttrs (isSystem && cacheCfg.enable && !cacheCfg.onlyTrusted && cacheSettings.hasMatches) {
+        nix.settings = {
+          substituters = cacheSettings.substituters;
+          trusted-public-keys = cacheSettings.trustedKeys;
+        };
+      })
+
+      # Home-manager context with enable: set substituters and trusted-public-keys
+      (lib.optionalAttrs (isHomeManager && cacheCfg.enable && cacheSettings.hasMatches) {
+        nix.settings = {
+          substituters = cacheSettings.substituters;
+          trusted-public-keys = cacheSettings.trustedKeys;
+        };
       })
     ];
 }
