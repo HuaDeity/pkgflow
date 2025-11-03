@@ -3,8 +3,9 @@
 
 let
   # Load and filter manifest packages by system
+  # Simple logic: if package has systems attribute, filter by it. Otherwise, include it.
   loadManifest =
-    manifestFile: requireSystemMatch:
+    manifestFile:
     if manifestFile == null then
       { }
     else
@@ -13,12 +14,14 @@ let
         packages = manifest.install or { };
 
         # System matching logic
+        # If package specifies systems, check if current system is supported
+        # If package doesn't specify systems, assume it works everywhere
         systemMatches =
           attrs:
           if attrs ? systems then
             lib.elem pkgs.system attrs.systems
           else
-            !requireSystemMatch;
+            true;
       in
       lib.filterAttrs (_: systemMatches) packages;
 
@@ -65,12 +68,20 @@ let
 
   # Process manifest and return list of resolved packages
   processManifest =
-    manifestFile: requireSystemMatch:
+    manifestFile:
     let
-      systemFilteredPackages = loadManifest manifestFile requireSystemMatch;
+      systemFilteredPackages = loadManifest manifestFile;
       resolvedPackages = lib.filter (pkg: pkg != null) (
         lib.mapAttrsToList resolvePackage systemFilteredPackages
       );
+    in
+    resolvedPackages;
+
+  # Process a packages attrset (already loaded from manifest) and return resolved packages
+  processManifestPackages =
+    packages:
+    let
+      resolvedPackages = lib.filter (pkg: pkg != null) (lib.mapAttrsToList resolvePackage packages);
     in
     resolvedPackages;
 
@@ -89,8 +100,8 @@ let
       }
     else
       let
-        # Load manifest without system filtering (we want caches for ALL flakes)
-        systemFilteredPackages = loadManifest manifestFile false;
+        # Load manifest (caches are computed for all flakes regardless of system filtering)
+        systemFilteredPackages = loadManifest manifestFile;
         flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
         flakeRefs = lib.mapAttrsToList (_name: attrs: attrs.flake) flakePackages;
 
@@ -125,5 +136,5 @@ let
       };
 in
 {
-  inherit loadManifest resolvePackage processManifest computeCaches;
+  inherit loadManifest resolvePackage processManifest processManifestPackages computeCaches;
 }

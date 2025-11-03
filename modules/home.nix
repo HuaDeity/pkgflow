@@ -10,6 +10,15 @@
 let
   cfg = config.pkgflow;
   coreModule = import ../core.nix;
+
+  isDarwin = pkgs.stdenv.isDarwin;
+  hasDarwinSources = isDarwin && (builtins.length cfg.darwinPackagesSource) > 0;
+  wantsHome = hasDarwinSources && builtins.elem "home" cfg.darwinPackagesSource;
+
+  # Choose which packages to install
+  # On Darwin with darwinPackagesSource including "home": use filtered _homePackages
+  # Otherwise: use all _packages
+  packagesToInstall = if wantsHome then cfg._homePackages else cfg._packages;
 in
 {
   imports = [
@@ -24,7 +33,7 @@ in
     lib.mkMerge [
       # Install packages
       (lib.mkIf (manifestFile != null) {
-        home.packages = cfg._packages;
+        home.packages = packagesToInstall;
       })
 
       # Set nix.package when using caches (required for home-manager)
