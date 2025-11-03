@@ -15,7 +15,7 @@
         default = pkgflow;
       };
 
-      homeManagerModules = rec {
+      homeModules = rec {
         pkgflow = ./modules/home.nix;
         default = pkgflow;
       };
