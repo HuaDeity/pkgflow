@@ -16,23 +16,8 @@ let
 
   cfg = config.pkgflow;
 
-  # Check if shared options exist
-  hasSharedOptions = config.pkgflow ? manifest;
-
-  # Resolution order:
-  # 1. Module-specific manifestFile
-  # 2. Shared pkgflow.manifest.file (if exists)
-  # 3. null
-  actualManifestFile =
-    if cfg.manifestFile != null then
-      cfg.manifestFile
-    else if hasSharedOptions && cfg.manifest.file != null then
-      cfg.manifest.file
-    else
-      null;
-
   # Load manifest packages (unresolved) already filtered for the current system
-  manifestPackages = pkgflowLib.loadManifest actualManifestFile;
+  manifestPackages = pkgflowLib.loadManifest cfg.manifestFile;
 
   # Determine platform and settings
   isDarwin = pkgs.stdenv.isDarwin;
@@ -91,7 +76,7 @@ let
 
   # Compute caches
   cacheResult = pkgflowLib.computeCaches {
-    manifestFile = actualManifestFile;
+    manifestFile = cfg.manifestFile;
     cacheMapping = cfg.caches.mapping;
     addNixCommunity = cfg.caches.addNixCommunity;
   };
@@ -141,7 +126,7 @@ in
 
     homebrewMappingFile = lib.mkOption {
       type = lib.types.path;
-      default = ./config/mapping.toml;
+      default = ../config/mapping.toml;
       apply = toString;
       description = ''
         Path to the TOML mapping between nix package names and Homebrew formulae.
@@ -233,27 +218,25 @@ in
     {
       assertions = [
         {
-          assertion = actualManifestFile != null;
+          assertion = cfg.manifestFile != null;
           message = ''
             pkgflow: No manifest file specified.
 
-            Please set either:
-            1. pkgflow.manifestFile = ./path/to/manifest.toml;
-            2. Import sharedModules and set: pkgflow.manifest.file = ./path/to/manifest.toml;
+            Please set "pkgflow.manifestFile = ./path/to/manifest.toml";
           '';
         }
         {
-          assertion = actualManifestFile == null || builtins.pathExists (toString actualManifestFile);
+          assertion = cfg.manifestFile == null || builtins.pathExists (toString cfg.manifestFile);
           message = ''
             pkgflow: Manifest file does not exist:
-            ${toString actualManifestFile}
+            ${toString cfg.manifestFile}
 
             Check that the path is correct and the file exists.
           '';
         }
         {
           assertion =
-            actualManifestFile == null || !wantsBrew || builtins.pathExists (toString cfg.homebrewMappingFile);
+            cfg.manifestFile == null || !wantsBrew || builtins.pathExists (toString cfg.homebrewMappingFile);
           message = ''
             pkgflow: Homebrew mapping file does not exist:
             ${toString cfg.homebrewMappingFile}
