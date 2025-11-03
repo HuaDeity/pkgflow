@@ -153,6 +153,19 @@ in
       '';
     };
 
+    autoAddNixCommunity = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Automatically add nix-community.cachix.org cache for any github:nix-community/* flakes.
+        When enabled, detects flakes from the nix-community organization and adds their cache.
+
+        Cache details:
+        - substituter: https://nix-community.cachix.org
+        - trusted-key: nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+      '';
+    };
+
     mapping = lib.mkOption {
       type = lib.types.listOf (
         lib.types.submodule {
@@ -240,13 +253,29 @@ in
               cache: builtins.elem cache.flake flakeRefs
             ) cacheCfg.mapping;
 
+            # Auto-detect nix-community flakes
+            hasNixCommunityFlake = lib.any (
+              flakeRef: lib.hasPrefix "github:nix-community/" flakeRef
+            ) flakeRefs;
+
+            # Add nix-community cache if enabled and detected
+            nixCommunityCaches = lib.optionals (cacheCfg.autoAddNixCommunity && hasNixCommunityFlake) [
+              {
+                substituter = "https://nix-community.cachix.org";
+                trustedKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
+              }
+            ];
+
+            # Combine matched caches with nix-community cache
+            allCaches = matchedCaches ++ nixCommunityCaches;
+
             # Extract substituters and keys
-            substituters = lib.unique (map (cache: cache.substituter) matchedCaches);
-            trustedKeys = lib.unique (map (cache: cache.trustedKey) matchedCaches);
+            substituters = lib.unique (map (cache: cache.substituter) allCaches);
+            trustedKeys = lib.unique (map (cache: cache.trustedKey) allCaches);
           in
           {
             inherit substituters trustedKeys;
-            hasMatches = (builtins.length matchedCaches) > 0;
+            hasMatches = (builtins.length allCaches) > 0;
           }
         else
           {

@@ -99,17 +99,19 @@ pkgflow can automatically configure binary caches (substituters) and trusted pub
 
 When enabled, pkgflow:
 1. Reads your manifest to find flake packages
-2. Matches them against the cache mapping in `config/caches.nix`
-3. Automatically sets `nix.settings.substituters` and `nix.settings.trusted-public-keys`
-4. Only configures caches for packages that match your current system
+2. Auto-detects `github:nix-community/*` flakes and adds nix-community.cachix.org (enabled by default)
+3. Matches other flakes against the cache mapping in `config/caches.nix`
+4. Automatically sets `nix.settings.substituters` and `nix.settings.trusted-public-keys`
+5. Only configures caches for packages that match your current system
 
 ### Configuration Options
 
 ```nix
 pkgflow.caches = {
-  enable = false;          # Enable binary cache configuration
-  onlyTrusted = false;     # System-only: Set only trusted-* settings
-  mapping = [ ... ];       # Override default cache mappings
+  enable = false;              # Enable binary cache configuration
+  onlyTrusted = false;         # System-only: Set only trusted-* settings
+  autoAddNixCommunity = true;  # Auto-detect github:nix-community/* flakes
+  mapping = [ ... ];           # Override default cache mappings
 };
 ```
 
@@ -117,6 +119,7 @@ pkgflow.caches = {
 |--------|------|---------|-------------|
 | `enable` | bool | `false` | Enable binary cache configuration |
 | `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters and trusted-public-keys (useful for non-trusted users) |
+| `autoAddNixCommunity` | bool | `true` | Automatically add nix-community.cachix.org for any github:nix-community/* flakes |
 | `mapping` | list | `config/caches.nix` | Cache mappings (flake → substituter + key) |
 
 ### Installation Scenarios
@@ -173,13 +176,10 @@ pkgflow includes default mappings for popular flake caches in `config/caches.nix
     substituter = "https://helix.cachix.org";
     trustedKey = "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs=";
   }
-  {
-    flake = "github:nix-community/neovim-nightly-overlay";
-    substituter = "https://nix-community.cachix.org";
-    trustedKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
-  }
 ]
 ```
+
+**Note:** All `github:nix-community/*` flakes are automatically detected and configured to use `nix-community.cachix.org` (can be disabled with `autoAddNixCommunity = false`).
 
 ### Custom Cache Mappings
 
@@ -215,11 +215,14 @@ git.pkg-path = "git"
 helix.flake = "github:helix-editor/helix"
 helix.systems = ["aarch64-darwin", "x86_64-linux"]
 
+# Nix-community flakes (automatically use nix-community.cachix.org)
 neovim-nightly-overlay.flake = "github:nix-community/neovim-nightly-overlay"
 neovim-nightly-overlay.systems = ["aarch64-darwin", "x86_64-linux"]
 ```
 
-When `pkgflow.caches.enable = true`, the Helix and Neovim Nightly caches are automatically configured based on the mappings in `config/caches.nix`.
+When `pkgflow.caches.enable = true`:
+- **Helix** cache is configured from `config/caches.nix` mapping
+- **Neovim Nightly** cache is automatically detected and configured (nix-community.cachix.org)
 
 ## Configuration Options
 
@@ -281,6 +284,7 @@ mihomo.systems = ["aarch64-linux", "x86_64-linux"]
 pkgflow.caches = {
   enable = true;                       # Enable cache configuration
   onlyTrusted = false;                 # System-only: trusted settings
+  autoAddNixCommunity = true;          # Auto-detect nix-community flakes
   mapping = import ./config/caches.nix; # Cache mappings
 };
 ```
@@ -289,6 +293,7 @@ pkgflow.caches = {
 |--------|------|---------|-------------|
 | `enable` | bool | `false` | Enable binary cache configuration |
 | `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters/keys |
+| `autoAddNixCommunity` | bool | `true` | Auto-detect github:nix-community/* flakes |
 | `mapping` | list | `./config/caches.nix` | Flake → cache mappings |
 
 See [Binary Cache Support](#binary-cache-support) for detailed documentation.
