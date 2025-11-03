@@ -291,7 +291,10 @@ in
           cacheCfg = config.pkgflow.caches;
 
           # Compute cache settings
-          systemFilteredPackages = loadManifest actualManifestFile cfg.requireSystemMatch;
+          # Note: Always use requireSystemMatch=false for cache detection
+          # We want to configure caches for ALL flakes in the manifest,
+          # not just the ones being installed on this system
+          systemFilteredPackages = loadManifest actualManifestFile false;
           flakePackages = lib.filterAttrs (_: attrs: attrs ? flake) systemFilteredPackages;
           flakeRefs = lib.mapAttrsToList (_name: attrs: attrs.flake) flakePackages;
 
