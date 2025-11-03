@@ -13,6 +13,10 @@ brew = "codex"
 type = "cask"
 
 [[package]]
+nix = "copilot-language-server"
+brew = false
+
+[[package]]
 nix = "delta"
 brew = "git-delta"
 
@@ -21,6 +25,10 @@ nix = "github:helix-editor/helix"
 brew = "helix"
 type = "formula"
 args = ["HEAD"]
+
+[[package]]
+nix = "home-manager"
+brew = false
 
 [[package]]
 nix = "jujutsu"
@@ -33,8 +41,13 @@ type = "formula"
 args = ["HEAD"]
 
 [[package]]
+nix = "nixd"
+brew = false
+
+[[package]]
 nix = "nixfmt-rfc-style"
-brew = "nixfmt"
+# brew = "nixfmt"
+brew = false
 
 [[package]]
 nix = "nodejs"
@@ -43,3 +56,7 @@ brew = "node"
 [[package]]
 nix = "tree-sitter"
 brew = "tree-sitter-cli"
+
+[[package]]
+nix = "vectorcode"
+brew = false

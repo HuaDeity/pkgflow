@@ -78,12 +78,15 @@ let
                   attrs.pkg-path
               );
             brewInfo = homebrewMapping.${lookupKey} or null;
+            brewVal = if brewInfo ? brew then brewInfo.brew else true;
           in
-          brewInfo != null && (brewInfo.brew or null) != null && (brewInfo.brew or null) != false;
+          brewVal != false && brewVal != null;
 
         # Filter packages
         brewPackages = lib.filterAttrs canInstallViaBrew manifestPackages;
-        nixPackages = lib.filterAttrs (name: _: !canInstallViaBrew name manifestPackages.${name}) manifestPackages;
+        nixPackages = lib.filterAttrs (
+          name: _: !canInstallViaBrew name manifestPackages.${name}
+        ) manifestPackages;
       in
       {
         nix = nixPackages;
@@ -115,7 +118,13 @@ in
 
     # Darwin-specific: choose where to install packages
     darwinPackagesSource = lib.mkOption {
-      type = lib.types.listOf (lib.types.enum [ "system" "brew" "home" ]);
+      type = lib.types.listOf (
+        lib.types.enum [
+          "system"
+          "brew"
+          "home"
+        ]
+      );
       default = [ ];
       description = ''
         On Darwin only: List of package installation sources.
@@ -251,9 +260,7 @@ in
         }
         {
           assertion =
-            actualManifestFile == null
-            || !wantsBrew
-            || builtins.pathExists (toString cfg.homebrewMappingFile);
+            actualManifestFile == null || !wantsBrew || builtins.pathExists (toString cfg.homebrewMappingFile);
           message = ''
             pkgflow: Homebrew mapping file does not exist:
             ${toString cfg.homebrewMappingFile}
