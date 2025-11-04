@@ -13,12 +13,16 @@ let
 
   # Determine if we want system-level installation
   wantsSystem =
-    builtins.elem "system" cfg.darwinPackagesSource ||
-    builtins.elem "system" cfg.flakePackagesSource;
+    cfg.pkgs.enable && (
+      builtins.elem "system" cfg.pkgs.nixpkgs ||
+      builtins.elem "system" cfg.pkgs.flakes
+    );
 
   wantsBrew =
-    builtins.elem "brew" cfg.darwinPackagesSource ||
-    builtins.elem "brew" cfg.flakePackagesSource;
+    cfg.pkgs.enable && (
+      builtins.elem "brew" cfg.pkgs.nixpkgs ||
+      builtins.elem "brew" cfg.pkgs.flakes
+    );
 in
 {
   imports = [
@@ -39,7 +43,7 @@ in
     }
 
     # Install Nix packages via systemPackages (when "system" in sources)
-    (lib.mkIf (wantsSystem && cfg.manifestFile != null) {
+    (lib.mkIf wantsSystem {
       environment.systemPackages = cfg._nixPackages;
     })
 
@@ -47,6 +51,22 @@ in
     (lib.mkIf wantsBrew {
       homebrew.brews = cfg._homebrewFormulas;
       homebrew.casks = cfg._homebrewCasks;
+    })
+
+    # Binary cache configuration - system level (onlyTrusted)
+    (lib.mkIf (cfg.substituters.enable && cfg._cacheResult.hasMatches && cfg.substituters.onlyTrusted) {
+      nix.settings = {
+        trusted-substituters = cfg._cacheResult.substituters;
+        trusted-public-keys = cfg._cacheResult.trustedKeys;
+      };
+    })
+
+    # Binary cache configuration - system level (context = "system")
+    (lib.mkIf (cfg.substituters.enable && cfg._cacheResult.hasMatches && cfg.substituters.context == "system") {
+      nix.settings = {
+        substituters = cfg._cacheResult.substituters;
+        trusted-public-keys = cfg._cacheResult.trustedKeys;
+      };
     })
   ];
 }

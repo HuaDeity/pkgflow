@@ -1,18 +1,17 @@
 # pkgflow
 
-Universal package manifest transformer for Nix. Transform between Flox manifests, Nix packages, and Homebrew (with more formats coming soon).
+Universal package manifest transformer for Nix. Transform between Flox manifests, Nix packages, and Homebrew.
 
 ## Features
 
-- 📦 **Automatic package installation** from Flox `manifest.toml` files
+- 📦 **Multiple manifest support** - Merge packages from multiple `manifest.toml` files
 - 🏠 **Home-manager support** - Install to `home.packages`
 - 🖥️ **NixOS/Darwin support** - Install to `environment.systemPackages`
 - 🍺 **Homebrew integration** - Convert Nix packages to Homebrew on macOS
 - 🔄 **Flake package resolution** - Support for flake-based packages in manifests
 - 🔐 **Binary cache support** - Automatic substituter and trusted-public-keys configuration
-- 🎯 **System filtering** - Smart filtering by compatible systems
-- 🚀 **Zero configuration** - Import and go, no `enable` switches needed
-- 🧠 **Context-aware** - Automatically detects home-manager vs system context
+- 🎯 **Explicit configuration** - No assumptions, full control over package sources
+- ⚙️ **Override defaults** - Customize Homebrew and cache mappings
 
 ## Installation
 
@@ -29,19 +28,13 @@ Add to your `flake.nix`:
 
 ## Module Structure
 
-pkgflow provides 3 simple, independent module outputs:
+pkgflow provides 3 platform-specific module outputs:
 
-| Module | Use For | Auto-detects Context |
-|--------|---------|---------------------|
-| `sharedModules.default` | Shared manifest path | N/A |
-| `nixModules.default` | Nix packages (home OR system) | ✅ Yes |
-| `brewModules.default` | Darwin Homebrew | No |
-
-**Key Features:**
-
-- ✅ **Import = Enable** - No `enable` option needed
-- ✅ **Auto-detection** - `nixModules` detects home-manager vs system context automatically
-- ✅ **Flake inputs** - Automatically uses your flake's `inputs` for flake packages
+| Module | Use For |
+|--------|---------|
+| `homeModules.default` | Home-manager (installs to home.packages) |
+| `darwinModules.default` | nix-darwin (system or home packages, Homebrew) |
+| `nixosModules.default` | NixOS (installs to environment.systemPackages) |
 
 ## Quick Start
 
@@ -50,26 +43,38 @@ pkgflow provides 3 simple, independent module outputs:
 ```nix
 { inputs, ... }:
 {
-  imports = [
-    inputs.pkgflow.sharedModules.default # Optional: for global config
-    inputs.pkgflow.nixModules.default # Auto-detects home.packages
-  ];
+  imports = [ inputs.pkgflow.homeModules.default ];
 
-  pkgflow.manifest.file = ./manifest.toml;
+  pkgflow.manifestFiles = [ ./manifest.toml ];
 }
 ```
 
-### For NixOS/nix-darwin
+### For NixOS
 
 ```nix
 { inputs, ... }:
 {
-  imports = [
-    inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.nixModules.default # Auto-detects environment.systemPackages
-  ];
+  imports = [ inputs.pkgflow.nixosModules.default ];
 
-  pkgflow.manifest.file = ./manifest.toml;
+  pkgflow.manifestFiles = [ ./manifest.toml ];
+}
+```
+
+### For nix-darwin
+
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.pkgflow.darwinModules.default ];
+
+  pkgflow.manifestFiles = [ ./manifest.toml ];
+
+  # Optional: Customize package installation
+  pkgflow.pkgs = {
+    enable = true;
+    nixpkgs = [ "home" ];  # Default: install via home.packages
+    flakes = [ "home" ];
+  };
 }
 ```
 
@@ -78,287 +83,175 @@ pkgflow provides 3 simple, independent module outputs:
 ```nix
 { inputs, ... }:
 {
-  imports = [
-    inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.nixModules.default # For Nix packages
-    inputs.pkgflow.brewModules.default # For Homebrew
-  ];
+  imports = [ inputs.pkgflow.darwinModules.default ];
 
-  pkgflow.manifest.file = ./manifest.toml;
+  pkgflow.manifestFiles = [ ./manifest.toml ];
 
-  # Optional: Only install packages that explicitly declare systems
-  pkgflow.manifestPackages.requireSystemMatch = true;
+  # Use Homebrew for compatible packages, Nix for others
+  pkgflow.pkgs = {
+    enable = true;
+    nixpkgs = [ "brew" "home" ];  # Try Homebrew first, fallback to Nix
+    flakes = [ "brew" "home" ];
+  };
 }
 ```
 
-## Binary Cache Support
+## Configuration
 
-pkgflow can automatically configure binary caches (substituters) and trusted public keys for flake packages in your manifest. This is especially useful for Cachix caches and other binary cache services.
+### Multiple Manifests
 
-### How It Works
-
-When enabled, pkgflow:
-1. Reads your manifest to find flake packages
-2. Auto-detects `github:nix-community/*` flakes and adds nix-community.cachix.org (see `addNixCommunity` option)
-3. Matches other flakes against the cache mapping in `config/caches.nix`
-4. Automatically sets `nix.settings.substituters` and `nix.settings.trusted-public-keys`
-5. Only configures caches for packages that match your current system
-
-### Configuration Options
+You can merge multiple manifest files:
 
 ```nix
-pkgflow.caches = {
-  enable = false;              # Enable binary cache configuration
-  onlyTrusted = false;         # System-only: Set only trusted-* settings
-  addNixCommunity = null;      # null=auto-detect, true=always, false=never
-  mapping = [ ... ];           # Override default cache mappings
+pkgflow.manifestFiles = [
+  ./project-a/manifest.toml
+  ./project-b/manifest.toml
+  ./personal/manifest.toml
+];
+```
+
+### Package Installation
+
+Control where and how packages are installed:
+
+```nix
+pkgflow.pkgs = {
+  enable = true;           # Enable package installation (default: true)
+  nixpkgs = [ "home" ];    # Sources for nixpkgs packages (default: ["home"])
+  flakes = [ "home" ];     # Sources for flake packages (default: [])
 };
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enable` | bool | `false` | Enable binary cache configuration |
-| `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters and trusted-public-keys (useful for non-trusted users) |
-| `addNixCommunity` | bool\|null | `null` | **null**: Auto-detect nix-community flakes and add cache if found<br>**true**: Always add nix-community cache<br>**false**: Never add nix-community cache |
-| `mapping` | list | `config/caches.nix` | Cache mappings (flake → substituter + key) |
+**Available sources** (can specify multiple, earlier sources have priority):
+- `"home"` - Install via `home.packages` (home-manager)
+- `"system"` - Install via `environment.systemPackages` (NixOS/nix-darwin)
+- `"brew"` - Install via Homebrew (Darwin only, requires mapping)
 
-### Installation Scenarios
+**Note:** Cannot use both `"system"` and `"home"` together - choose one.
 
-**Scenario 1: System (trusted only) + Home (full config)**
+### Homebrew Mapping
+
+On Darwin, override or add Homebrew mappings:
+
+```nix
+pkgflow.pkgs.homebrewMappingOverrides = [
+  # Override existing default mapping
+  { nix = "git"; brew = "git-custom"; }
+
+  # Change neovim from formula to cask
+  { nix = "neovim"; cask = "neovim"; brew = null; }
+
+  # Add new mapping for custom package
+  { nix = "myapp"; brew = "myapp"; }
+];
+```
+
+Default mappings are loaded from `config/mapping.toml` automatically.
+
+### Binary Cache Configuration
+
+Configure substituters (binary caches) for flake packages:
+
+```nix
+pkgflow.substituters = {
+  enable = false;            # Enable cache configuration (default: false)
+  context = "home";          # Where to configure (default: "home")
+  onlyTrusted = false;       # Use trusted-substituters (default: false)
+  addNixCommunity = null;    # Auto-detect nix-community flakes (default: null)
+};
+```
+
+**Context options:**
+- `"home"` (default) - Configure at home-manager level using `extra-substituters` and `extra-trusted-public-keys`
+- `"system"` - Configure at system level using `substituters` and `trusted-public-keys`
+- `null` - Do nothing
+
+**onlyTrusted** (independent option):
+- When `true`, configures `trusted-substituters` and `trusted-public-keys` at system level
+- Useful for non-trusted users who need system-level trust configuration
+- Can be used together with `context`
+
+**addNixCommunity:**
+- `null` (default) - Auto-detect: add cache only if `github:nix-community/*` flakes are found
+- `true` - Always add nix-community cache
+- `false` - Never add nix-community cache
+
+### Custom Cache Mappings
+
+Override or add cache mappings for flake packages:
+
+```nix
+pkgflow.substituters.mappingOverrides = [
+  # Override existing default mapping
+  {
+    flake = "github:helix-editor/helix";
+    substituter = "https://my-custom-cache.org";
+    trustedKey = "my-cache.org-1:customkey==";
+  }
+
+  # Add new mapping for custom flake
+  {
+    flake = "github:myorg/myflake";
+    substituter = "https://myflake.cachix.org";
+    trustedKey = "myflake.cachix.org-1:key==";
+  }
+];
+```
+
+Default mappings are loaded from `config/caches.nix` automatically.
+
+## Binary Cache Scenarios
+
+### Scenario 1: System (trusted only) + Home (full config)
 
 Best for systems where users are not in `trusted-users`:
 
 ```nix
 # system configuration (NixOS/nix-darwin)
 {
-  imports = [ inputs.pkgflow.nixModules.default ];
-  pkgflow.caches.onlyTrusted = true;  # Set trusted-substituters and trusted-public-keys
-}
-
-# home-manager configuration
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-  pkgflow.manifest.file = ./manifest.toml;
-  pkgflow.caches.enable = true;  # Set substituters and trusted-public-keys
-}
-```
-
-**Scenario 2: System only (full config + packages)**
-
-```nix
-# system configuration
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-  pkgflow.manifest.file = ./manifest.toml;
-  pkgflow.caches.enable = true;  # Set substituters and trusted-public-keys at system level
-}
-```
-
-**Scenario 3: Home-manager only (full config + packages)**
-
-```nix
-# home-manager configuration
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-  pkgflow.manifest.file = ./manifest.toml;
-  pkgflow.caches.enable = true;  # Set substituters and trusted-public-keys at home level
-}
-```
-
-### Default Cache Mappings
-
-pkgflow includes default mappings for popular flake caches in `config/caches.nix`:
-
-```nix
-[
-  {
-    flake = "github:helix-editor/helix";
-    substituter = "https://helix.cachix.org";
-    trustedKey = "helix.cachix.org-1:ejp9KQpR1FBI2onstMQ34yogDm4OgU2ru6lIwPvuCVs=";
-  }
-]
-```
-
-**Note:** By default (`addNixCommunity = null`), `github:nix-community/*` flakes are automatically detected and configured to use `nix-community.cachix.org`. Set to `false` to disable, or `true` to always add regardless of detection.
-
-### Custom Cache Mappings
-
-You can override or extend the default mappings:
-
-```nix
-{
-  pkgflow.caches = {
+  imports = [ inputs.pkgflow.darwinModules.default ];
+  pkgflow.substituters = {
     enable = true;
-    mapping = [
-      # Add your custom caches
-      {
-        flake = "github:myorg/myflake";
-        substituter = "https://mycache.example.com";
-        trustedKey = "mycache.example.com-1:xxxxx";
-      }
-      # Or include defaults and add more
-    ] ++ (import "${inputs.pkgflow}/config/caches.nix");
+    onlyTrusted = true;  # Set trusted-substituters and trusted-public-keys
+  };
+}
+
+# home-manager configuration
+{
+  imports = [ inputs.pkgflow.homeModules.default ];
+  pkgflow.manifestFiles = [ ./manifest.toml ];
+  pkgflow.substituters = {
+    enable = true;
+    context = "home";  # Set extra-substituters and extra-trusted-public-keys
   };
 }
 ```
 
-### Example Manifest
-
-```toml
-version = 1
-
-[install]
-# Regular nixpkgs packages (no cache configuration needed)
-git.pkg-path = "git"
-
-# Flake packages (cache automatically configured if in mapping)
-helix.flake = "github:helix-editor/helix"
-helix.systems = ["aarch64-darwin", "x86_64-linux"]
-
-# Nix-community flakes (automatically use nix-community.cachix.org)
-neovim-nightly-overlay.flake = "github:nix-community/neovim-nightly-overlay"
-neovim-nightly-overlay.systems = ["aarch64-darwin", "x86_64-linux"]
-```
-
-When `pkgflow.caches.enable = true`:
-- **Helix** cache is configured from `config/caches.nix` mapping
-- **Neovim Nightly** cache is automatically detected and configured (nix-community.cachix.org)
-
-## Configuration Options
-
-### `pkgflow.manifest` (Shared)
+### Scenario 2: System only
 
 ```nix
-pkgflow.manifest.file = ./path/to/manifest.toml;
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `file` | path | `null` | Path to manifest.toml file |
-
-### `pkgflow.manifestPackages` (Nix Packages)
-
-```nix
-pkgflow.manifestPackages = {
-  manifestFile = ./custom-manifest.toml;  # Optional: override shared
-  requireSystemMatch = true;              # Optional: filter packages
-};
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `manifestFile` | path | `null` | Override shared manifest path |
-| `requireSystemMatch` | bool | `false` | Control package filtering (see below) |
-
-#### System Filtering Behavior
-
-**The `systems` attribute is ALWAYS respected when present.**
-
-`requireSystemMatch` only controls packages **WITHOUT** a `systems` attribute:
-
-| Package Type | `requireSystemMatch = false` | `requireSystemMatch = true` |
-|--------------|------------------------------|----------------------------|
-| Has `systems` with current system | ✅ Installed | ✅ Installed |
-| Has `systems` without current system | ❌ Skipped | ❌ Skipped |
-| **No `systems` attribute** | **✅ Installed** | **❌ Skipped** |
-
-**Example on `aarch64-darwin`:**
-
-```toml
-[install]
-# No systems - behavior depends on requireSystemMatch
-git.pkg-path = "git"
-
-# Has systems including aarch64-darwin - always installed
-helix.flake = "github:helix-editor/helix"
-helix.systems = ["aarch64-darwin", "x86_64-linux"]
-
-# Has systems without aarch64-darwin - always skipped
-mihomo.pkg-path = "mihomo"
-mihomo.systems = ["aarch64-linux", "x86_64-linux"]
-```
-
-### `pkgflow.caches` (Binary Caches)
-
-```nix
-pkgflow.caches = {
-  enable = true;                       # Enable cache configuration
-  onlyTrusted = false;                 # System-only: trusted settings
-  addNixCommunity = null;              # null=auto-detect, true=always, false=never
-  mapping = import ./config/caches.nix; # Cache mappings
-};
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enable` | bool | `false` | Enable binary cache configuration |
-| `onlyTrusted` | bool | `false` | System-only: Set trusted-substituters/keys |
-| `addNixCommunity` | bool\|null | `null` | **null**: auto-detect, **true**: always add, **false**: never add |
-| `mapping` | list | `./config/caches.nix` | Flake → cache mappings |
-
-See [Binary Cache Support](#binary-cache-support) for detailed documentation.
-
-### `pkgflow.homebrewManifest` (Darwin only)
-
-```nix
-pkgflow.homebrewManifest = {
-  manifestFile = ./custom-manifest.toml;  # Optional: override shared
-  mappingFile = ./my-mapping.toml;        # Optional: custom mapping
-};
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `manifestFile` | path | `null` | Override shared manifest path |
-| `mappingFile` | path | `./config/mapping.toml` | Nix → Homebrew mapping |
-
-**Homebrew module behavior:**
-
-- ✅ Installs packages **WITHOUT** `systems` attribute
-- ❌ Skips packages **WITH** `systems` attribute (reserved for Nix)
-
-## macOS Configuration Strategy
-
-On macOS, use both `nixModules` and `brewModules` together:
-
-```nix
-{ inputs, ... }:
 {
-  imports = [
-    inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.nixModules.default
-    inputs.pkgflow.brewModules.default
-  ];
-
-  pkgflow.manifest.file = ./manifest.toml;
-
-  # Only install Nix packages that explicitly declare systems
-  pkgflow.manifestPackages.requireSystemMatch = true;
+  imports = [ inputs.pkgflow.nixosModules.default ];
+  pkgflow.manifestFiles = [ ./manifest.toml ];
+  pkgflow.substituters = {
+    enable = true;
+    context = "system";  # Configure at system level
+  };
 }
 ```
 
-**Manifest example:**
+### Scenario 3: Home-manager only (default)
 
-```toml
-[install]
-# → Homebrew (no systems attribute)
-git.pkg-path = "git"
-nodejs.pkg-path = "nodejs"
-neovim.pkg-path = "neovim"
-
-# → Nix only (has systems attribute)
-nixfmt-rfc-style.pkg-path = "nixfmt-rfc-style"
-nixfmt-rfc-style.systems = ["aarch64-darwin", "x86_64-linux"]
-
-helix.flake = "github:helix-editor/helix"
-helix.systems = ["aarch64-darwin", "x86_64-linux"]
+```nix
+{
+  imports = [ inputs.pkgflow.homeModules.default ];
+  pkgflow.manifestFiles = [ ./manifest.toml ];
+  pkgflow.substituters = {
+    enable = true;
+    # context = "home" is the default
+  };
+}
 ```
-
-**Result:**
-
-- ✅ Homebrew: git, nodejs, neovim
-- ✅ Nix: nixfmt-rfc-style, helix
-- ✅ No duplicates
 
 ## Flake Package Support
 
@@ -370,7 +263,7 @@ Flake packages are **automatically resolved** from your flake inputs:
 {
   inputs = {
     helix.url = "github:helix-editor/helix";
-    mcp-hub.url = "github:ravitemer/mcp-hub";
+    helix.inputs.nixpkgs.follows = "nixpkgs";
   };
 }
 ```
@@ -381,27 +274,9 @@ Flake packages are **automatically resolved** from your flake inputs:
 [install]
 helix.flake = "github:helix-editor/helix"
 helix.systems = ["aarch64-darwin", "x86_64-linux"]
-
-mcp-hub.flake = "github:ravitemer/mcp-hub"
-mcp-hub.systems = ["aarch64-darwin", "x86_64-linux"]
 ```
 
 3. **pkgflow automatically uses `inputs`** - No configuration needed!
-
-**If a flake package is missing:**
-
-```
-pkgflow: Flake package 'helix' not found in flake inputs.
-
-The manifest references: helix.flake = "github:helix-editor/helix"
-But 'helix' is not available in your flake inputs.
-
-To fix this, add to your flake.nix:
-  inputs.helix.url = "github:helix-editor/helix";
-  inputs.helix.inputs.nixpkgs.follows = "nixpkgs";
-
-Then run: nix flake update helix
-```
 
 ## Manifest Format
 
@@ -415,9 +290,6 @@ version = 1
 git.pkg-path = "git"
 neovim.pkg-path = "neovim"
 
-# With nested paths
-nodejs.pkg-path = "nodejs"
-
 # With system filters
 python3.pkg-path = "python3"
 python3.systems = ["x86_64-linux", "aarch64-darwin"]
@@ -427,50 +299,72 @@ helix.flake = "github:helix-editor/helix"
 helix.systems = ["aarch64-darwin", "x86_64-linux"]
 ```
 
+## Configuration Reference
+
+### `pkgflow.manifestFiles`
+
+```nix
+pkgflow.manifestFiles = [ ./manifest.toml ];
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `manifestFiles` | list(path) | (required) | List of manifest files to merge |
+
+### `pkgflow.pkgs`
+
+```nix
+pkgflow.pkgs = {
+  enable = true;
+  nixpkgs = [ "home" ];
+  flakes = [ ];
+  homebrewMappingOverrides = [ ];
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | bool | `true` | Enable package installation |
+| `nixpkgs` | list | `["home"]` | Sources for nixpkgs packages |
+| `flakes` | list | `[]` | Sources for flake packages |
+| `homebrewMappingOverrides` | list | `[]` | Override/add Homebrew mappings (Darwin only) |
+
+### `pkgflow.substituters`
+
+```nix
+pkgflow.substituters = {
+  enable = false;
+  context = "home";
+  onlyTrusted = false;
+  addNixCommunity = null;
+  mappingOverrides = [ ];
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | bool | `false` | Enable substituter configuration |
+| `context` | "home"\|"system"\|null | `"home"` | Where to configure substituters |
+| `onlyTrusted` | bool | `false` | Use trusted-substituters at system level |
+| `addNixCommunity` | bool\|null | `null` | Control nix-community.cachix.org |
+| `mappingOverrides` | list | `[]` | Override/add cache mappings |
+
 ## Examples
 
-### Minimal Home-Manager
-
-```nix
-{ inputs, ... }:
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-  pkgflow.manifestPackages.manifestFile = ./manifest.toml;
-}
-```
-
-### Shared Manifest Across Modules
-
-```nix
-# In shared config
-{ inputs, ... }:
-{
-  imports = [ inputs.pkgflow.sharedModules.default ];
-  pkgflow.manifest.file = ./default/.flox/env/manifest.toml;
-}
-
-# In home-manager config
-{ inputs, ... }:
-{
-  imports = [ inputs.pkgflow.nixModules.default ];
-  # Uses pkgflow.manifest.file from shared config
-}
-```
+See the `examples/` directory for complete examples:
+- `examples/home-manager.nix` - Home-manager configuration
+- `examples/nixos.nix` - NixOS configuration
+- `examples/darwin.nix` - nix-darwin with multiple strategies
+- `examples/with-flakes.nix` - Using flake packages with caches
 
 ## How It Works
 
-1. **Reads** the Flox `manifest.toml` file
+1. **Reads** multiple manifest files and merges packages
 2. **Filters** packages by system compatibility
 3. **Resolves** packages from nixpkgs or flake inputs
-4. **Detects** context (home-manager vs system)
-5. **Installs** to appropriate location
-
-## Roadmap
-
-- 🔄 **CLI tool** - Convert between formats: `pkgflow convert manifest.toml --to brewfile`
-- 📝 **Brewfile support** - Direct Brewfile to Nix conversion
-- 📦 **APT/DNF support** - Support for Debian/RedHat package lists
-- 🔀 **Bi-directional** - Convert from Nix to other formats
+4. **Splits** packages by configured sources (home/system/brew)
+5. **Configures** substituters based on flake packages
+6. **Installs** packages to appropriate locations
 
 ## Contributing
 

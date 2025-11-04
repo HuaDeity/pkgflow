@@ -7,49 +7,90 @@
 
 {
   imports = [
-    inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.nixModules.default    # For Nix packages
-    inputs.pkgflow.brewModules.default   # For Homebrew packages
+    inputs.pkgflow.darwinModules.default
   ];
 
-  # Global manifest path
-  pkgflow.manifest.file = ~/.config/flox/manifest.toml;
+  # Manifest files (can specify multiple for merging)
+  pkgflow.manifestFiles = [ ./manifest.toml ];
+  # Example with multiple manifests:
+  # pkgflow.manifestFiles = [
+  #   ./project-a/manifest.toml
+  #   ./project-b/manifest.toml
+  # ];
 
   # ========================================
   # RECOMMENDED: Strategy 1 - Homebrew-First
   # ========================================
-  # Use Homebrew for most packages, Nix only for packages unavailable in Homebrew
-  #
-  # In your manifest.toml:
-  # - Packages WITHOUT 'systems' → Installed via Homebrew
-  # - Packages WITH 'systems' → Installed via Nix
-  #
-  # Example manifest.toml:
-  #   [install]
-  #   git.pkg-path = "git"                    # → Homebrew
-  #   neovim.pkg-path = "neovim"              # → Homebrew
-  #
-  #   nixfmt.pkg-path = "nixfmt-rfc-style"    # → Nix
-  #   nixfmt.systems = ["aarch64-darwin"]
-  #
-  #   helix.flake = "github:helix-editor/helix"  # → Nix
-  #   helix.systems = ["aarch64-darwin"]
-
-  pkgflow.manifestPackages.requireSystemMatch = true;  # IMPORTANT: Only install if systems explicitly matches
+  # Use Homebrew for most packages, Nix via home-manager for packages unavailable in Homebrew
+  pkgflow.pkgs = {
+    enable = true;
+    nixpkgs = [ "brew" "home" ];  # Prefer brew, fallback to home
+    flakes = [ "brew" "home" ];   # Same for flake packages
+  };
 
   # ========================================
-  # Alternative: Strategy 2 - Nix-Only
+  # Alternative: Strategy 2 - System-level Nix
   # ========================================
-  # Use Nix for everything (same as Linux/NixOS behavior)
-  #
-  # Remove brewModules.default from imports above and configure:
-  # pkgflow.manifestPackages.requireSystemMatch = false;  # Default - installs all packages via Nix
+  # Install Nix packages via environment.systemPackages
+  # pkgflow.pkgs = {
+  #   enable = true;
+  #   nixpkgs = [ "system" ];
+  #   flakes = [ "system" ];
+  # };
 
   # ========================================
-  # Advanced: Custom Homebrew Mapping
+  # Alternative: Strategy 3 - Homebrew + System
   # ========================================
-  # Use a custom Nix → Homebrew mapping file
-  # pkgflow.homebrewManifest.mappingFile = ./my-custom-mapping.toml;
+  # Use Homebrew for packages that support it, system packages for others
+  # pkgflow.pkgs = {
+  #   enable = true;
+  #   nixpkgs = [ "brew" "system" ];
+  #   flakes = [ "brew" "system" ];
+  # };
+
+  # ========================================
+  # Binary Cache Configuration
+  # ========================================
+  # Configure substituters for flake packages
+  # pkgflow.substituters = {
+  #   enable = true;
+  #   context = "system";  # or "home" or null
+  #   onlyTrusted = false;  # Set true for trusted-substituters
+  # };
+
+  # Override or add substituter mappings:
+  # pkgflow.substituters.mappingOverrides = [
+  #   # Override existing default mapping
+  #   {
+  #     flake = "github:helix-editor/helix";
+  #     substituter = "https://my-custom-cache.org";
+  #     trustedKey = "my-cache.org-1:customkey==";
+  #   }
+  #   # Add new mapping for custom flake
+  #   {
+  #     flake = "github:myorg/myflake";
+  #     substituter = "https://myflake.cachix.org";
+  #     trustedKey = "myflake.cachix.org-1:key==";
+  #   }
+  # ];
+
+  # ========================================
+  # Homebrew Mapping Configuration
+  # ========================================
+  # The default mapping is loaded automatically from config/mapping.toml
+
+  # Override or add Homebrew mappings:
+  # pkgflow.pkgs.homebrewMappingOverrides = [
+  #   # Override existing default mapping
+  #   { nix = "git"; brew = "git-custom"; }
+  #   # Change neovim from formula to cask
+  #   { nix = "neovim"; cask = "neovim"; brew = null; }
+  #   # Add new mapping for custom package
+  #   { nix = "myapp"; brew = "myapp"; }
+  #   { nix = "custom-tool"; cask = "custom-tool"; }
+  # ];
+
+  # Final mapping = defaults merged with overrides (overrides take precedence)
 
   # Rest of your nix-darwin configuration
   system.stateVersion = 6;

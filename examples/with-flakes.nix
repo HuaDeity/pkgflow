@@ -1,16 +1,46 @@
-# Example: Using flake packages from manifest
+# Example: Using flake packages from manifest with binary cache configuration
 #
 # This example shows how flake packages are automatically resolved
-# from your flake inputs. No manual configuration needed!
+# from your flake inputs and how to configure binary caches.
 
 { inputs, ... }:
 
 {
   imports = [
-    inputs.pkgflow.nixModules.default
+    inputs.pkgflow.homeModules.default  # or nixosModules.default, or darwinModules.default
   ];
 
-  pkgflow.manifestPackages.manifestFile = ./manifest.toml;
+  # Manifest files (can specify multiple)
+  pkgflow.manifestFiles = [ ./manifest.toml ];
+
+  # Install flake packages
+  pkgflow.pkgs = {
+    enable = true;
+    flakes = [ "home" ];  # or [ "system" ] depending on your setup
+  };
+
+  # Configure binary caches for faster downloads
+  pkgflow.substituters = {
+    enable = true;
+    context = "home";  # or "system"
+    addNixCommunity = null;  # Auto-detect github:nix-community/* flakes
+  };
+
+  # Override or add custom cache mappings:
+  # pkgflow.substituters.mappingOverrides = [
+  #   # Override default helix cache
+  #   {
+  #     flake = "github:helix-editor/helix";
+  #     substituter = "https://my-custom-cache.org";
+  #     trustedKey = "my-cache.org-1:customkey==";
+  #   }
+  #   # Add mapping for your own flake
+  #   {
+  #     flake = "github:myorg/myflake";
+  #     substituter = "https://myflake.cachix.org";
+  #     trustedKey = "myflake.cachix.org-1:key==";
+  #   }
+  # ];
 
   # That's it! pkgflow automatically uses your flake's inputs
   # to resolve flake-based packages in the manifest.
@@ -34,16 +64,6 @@
   #   mcp-hub.inputs.nixpkgs.follows = "nixpkgs";
   # };
   #
-  # If a flake package is not found in inputs, pkgflow will show a helpful error:
-  #
-  # pkgflow: Flake package 'helix' not found in flake inputs.
-  #
-  # The manifest references: helix.flake = "github:helix-editor/helix"
-  # But 'helix' is not available in your flake inputs.
-  #
-  # To fix this, add to your flake.nix:
-  #   inputs.helix.url = "github:helix-editor/helix";
-  #   inputs.helix.inputs.nixpkgs.follows = "nixpkgs";
-  #
-  # Then run: nix flake update helix
+  # Binary caches are automatically configured based on the mapping in
+  # config/caches.nix - for example, helix uses helix.cachix.org
 }

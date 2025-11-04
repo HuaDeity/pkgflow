@@ -18,9 +18,9 @@ let
   # On non-Darwin: always (assumes standalone home-manager, not with NixOS system module)
   wantsHome =
     if !isDarwin then
-      true
+      cfg.pkgs.enable
     else
-      builtins.elem "home" cfg.darwinPackagesSource || builtins.elem "home" cfg.flakePackagesSource;
+      cfg.pkgs.enable && (builtins.elem "home" cfg.pkgs.nixpkgs || builtins.elem "home" cfg.pkgs.flakes);
 in
 {
   imports = [
@@ -29,20 +29,20 @@ in
 
   config =
     let
-      cacheEnabled = cfg.caches.enable or false;
-      cacheIsHome = cfg._effectiveInstallContext == "home";
+      substitutersEnabled = cfg.substituters.enable or false;
+      substitutersIsHome = cfg.substituters.context == "home";
     in
     lib.mkMerge [
       # Install packages
-      (lib.mkIf (cfg.manifestFile != null && wantsHome) {
+      (lib.mkIf wantsHome {
         home.packages = cfg._nixPackages;
       })
 
       # Binary cache configuration - home level
-      (lib.mkIf (cacheEnabled && cfg._cacheResult.hasMatches && cacheIsHome) {
+      (lib.mkIf (substitutersEnabled && cfg._cacheResult.hasMatches && substitutersIsHome) {
         nix.settings = {
-          substituters = cfg._cacheResult.substituters;
-          trusted-public-keys = cfg._cacheResult.trustedKeys;
+          extra-substituters = cfg._cacheResult.substituters;
+          extra-trusted-public-keys = cfg._cacheResult.trustedKeys;
         };
       })
     ];

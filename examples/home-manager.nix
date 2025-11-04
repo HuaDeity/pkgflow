@@ -7,18 +7,24 @@
 
 {
   imports = [
-    inputs.pkgflow.sharedModules.default  # Optional: for global config
-    inputs.pkgflow.nixModules.default     # Auto-detects home.packages
+    inputs.pkgflow.homeModules.default
   ];
 
-  # Shared manifest path (recommended for multiple modules)
-  pkgflow.manifest.file = ./my-project/.flox/env/manifest.toml;
+  # Manifest files (can specify multiple)
+  pkgflow.manifestFiles = [ ./my-project/.flox/env/manifest.toml ];
 
-  # Optional: Override manifest for this specific module
-  # pkgflow.manifestPackages.manifestFile = ./custom-manifest.toml;
+  # Package installation (enabled by default)
+  pkgflow.pkgs = {
+    enable = true;
+    nixpkgs = [ "home" ];  # Install via home.packages
+    flakes = [ "home" ];
+  };
 
-  # Optional: Only install packages that explicitly declare systems
-  # pkgflow.manifestPackages.requireSystemMatch = true;
+  # Binary cache configuration (optional)
+  # pkgflow.substituters = {
+  #   enable = true;
+  #   context = "home";  # Use extra-substituters/extra-trusted-public-keys
+  # };
 
   # Rest of your home-manager configuration
   home = {

@@ -7,16 +7,24 @@
 
 {
   imports = [
-    inputs.pkgflow.sharedModules.default
-    inputs.pkgflow.nixModules.default  # Auto-detects environment.systemPackages
+    inputs.pkgflow.nixosModules.default
   ];
 
-  # Set global manifest path
-  pkgflow.manifest.file = /etc/nixos/manifest.toml;
+  # Manifest files (can specify multiple)
+  pkgflow.manifestFiles = [ /etc/nixos/manifest.toml ];
 
-  # Optional: Override or configure per-module
-  # pkgflow.manifestPackages.manifestFile = /etc/nixos/custom-manifest.toml;
-  # pkgflow.manifestPackages.requireSystemMatch = true;
+  # Package installation (enabled by default)
+  # On NixOS, pkgs.nixpkgs is ignored - packages always go to environment.systemPackages
+  pkgflow.pkgs = {
+    enable = true;
+    flakes = [ "system" ];  # Install flake packages via environment.systemPackages
+  };
+
+  # Binary cache configuration (optional)
+  # pkgflow.substituters = {
+  #   enable = true;
+  #   context = "system";  # Use substituters/trusted-public-keys
+  # };
 
   # Rest of your NixOS configuration
   system.stateVersion = "24.05";
