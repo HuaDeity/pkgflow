@@ -7,7 +7,7 @@
 
 {
   imports = [
-    inputs.pkgflow.darwinModules.default
+    inputs.pkgflow.darwinModules.pkgflow
   ];
 
   # Manifest files (can specify multiple for merging)

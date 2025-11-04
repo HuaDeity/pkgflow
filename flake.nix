@@ -5,19 +5,12 @@
     { ... }:
     {
       # NixOS modules
-      nixosModules = rec {
-        pkgflow = ./modules/nixos.nix;
-        default = pkgflow;
-      };
+      nixosModules.pkgflow = ./modules/nixos.nix;
 
-      darwinModules = rec {
-        pkgflow = ./modules/darwin.nix;
-        default = pkgflow;
-      };
+      # nix-darwin modules
+      darwinModules.pkgflow = ./modules/darwin.nix;
 
-      homeModules = rec {
-        pkgflow = ./modules/home.nix;
-        default = pkgflow;
-      };
+      # Home-manager modules
+      homeModules.pkgflow = ./modules/home.nix;
     };
 }

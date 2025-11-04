@@ -7,7 +7,7 @@
 
 {
   imports = [
-    inputs.pkgflow.homeModules.default
+    inputs.pkgflow.homeModules.pkgflow
   ];
 
   # Manifest files (can specify multiple)

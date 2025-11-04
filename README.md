@@ -32,9 +32,9 @@ pkgflow provides 3 platform-specific module outputs:
 
 | Module | Use For |
 |--------|---------|
-| `homeModules.default` | Home-manager (installs to home.packages) |
-| `darwinModules.default` | nix-darwin (system or home packages, Homebrew) |
-| `nixosModules.default` | NixOS (installs to environment.systemPackages) |
+| `homeModules.pkgflow` | Home-manager (installs to home.packages) |
+| `darwinModules.pkgflow` | nix-darwin (system or home packages, Homebrew) |
+| `nixosModules.pkgflow` | NixOS (installs to environment.systemPackages) |
 
 ## Quick Start
 
@@ -43,7 +43,7 @@ pkgflow provides 3 platform-specific module outputs:
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.pkgflow.homeModules.default ];
+  imports = [ inputs.pkgflow.homeModules.pkgflow ];
 
   pkgflow.manifestFiles = [ ./manifest.toml ];
 }
@@ -54,7 +54,7 @@ pkgflow provides 3 platform-specific module outputs:
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.pkgflow.nixosModules.default ];
+  imports = [ inputs.pkgflow.nixosModules.pkgflow ];
 
   pkgflow.manifestFiles = [ ./manifest.toml ];
 }
@@ -65,7 +65,7 @@ pkgflow provides 3 platform-specific module outputs:
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.pkgflow.darwinModules.default ];
+  imports = [ inputs.pkgflow.darwinModules.pkgflow ];
 
   pkgflow.manifestFiles = [ ./manifest.toml ];
 
@@ -83,7 +83,7 @@ pkgflow provides 3 platform-specific module outputs:
 ```nix
 { inputs, ... }:
 {
-  imports = [ inputs.pkgflow.darwinModules.default ];
+  imports = [ inputs.pkgflow.darwinModules.pkgflow ];
 
   pkgflow.manifestFiles = [ ./manifest.toml ];
 
@@ -209,7 +209,7 @@ Best for systems where users are not in `trusted-users`:
 ```nix
 # system configuration (NixOS/nix-darwin)
 {
-  imports = [ inputs.pkgflow.darwinModules.default ];
+  imports = [ inputs.pkgflow.darwinModules.pkgflow ];
   pkgflow.substituters = {
     enable = true;
     onlyTrusted = true;  # Set trusted-substituters and trusted-public-keys
@@ -218,7 +218,7 @@ Best for systems where users are not in `trusted-users`:
 
 # home-manager configuration
 {
-  imports = [ inputs.pkgflow.homeModules.default ];
+  imports = [ inputs.pkgflow.homeModules.pkgflow ];
   pkgflow.manifestFiles = [ ./manifest.toml ];
   pkgflow.substituters = {
     enable = true;
@@ -231,7 +231,7 @@ Best for systems where users are not in `trusted-users`:
 
 ```nix
 {
-  imports = [ inputs.pkgflow.nixosModules.default ];
+  imports = [ inputs.pkgflow.nixosModules.pkgflow ];
   pkgflow.manifestFiles = [ ./manifest.toml ];
   pkgflow.substituters = {
     enable = true;
@@ -244,7 +244,7 @@ Best for systems where users are not in `trusted-users`:
 
 ```nix
 {
-  imports = [ inputs.pkgflow.homeModules.default ];
+  imports = [ inputs.pkgflow.homeModules.pkgflow ];
   pkgflow.manifestFiles = [ ./manifest.toml ];
   pkgflow.substituters = {
     enable = true;

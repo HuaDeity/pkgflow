@@ -7,7 +7,7 @@
 
 {
   imports = [
-    inputs.pkgflow.homeModules.default  # or nixosModules.default, or darwinModules.default
+    inputs.pkgflow.homeModules.pkgflow  # or nixosModules.pkgflow, or darwinModules.pkgflow
   ];
 
   # Manifest files (can specify multiple)

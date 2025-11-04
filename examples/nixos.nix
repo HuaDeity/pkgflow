@@ -7,7 +7,7 @@
 
 {
   imports = [
-    inputs.pkgflow.nixosModules.default
+    inputs.pkgflow.nixosModules.pkgflow
   ];
 
   # Manifest files (can specify multiple)
