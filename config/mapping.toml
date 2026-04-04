@@ -8,6 +8,10 @@ brew = "claude-code@latest"
 type = "cask"
 
 [[package]]
+nix = "codebook"
+brew = "codebook-lsp"
+
+[[package]]
 nix = "codex"
 brew = "codex"
 type = "cask"
