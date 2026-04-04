@@ -4,17 +4,13 @@ brew = "bat-extras"
 
 [[package]]
 nix = "claude-code"
-brew = "claude-code"
+brew = "claude-code@latest"
 type = "cask"
 
 [[package]]
 nix = "codex"
 brew = "codex"
 type = "cask"
-
-[[package]]
-nix = "copilot-language-server"
-brew = false
 
 [[package]]
 nix = "delta"
