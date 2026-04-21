@@ -60,3 +60,7 @@ brew = "tree-sitter-cli"
 [[package]]
 nix = "vectorcode"
 brew = false
+
+[[package]]
+nix = "github:HuaDeity/vscode-langservers-extracted-overlay"
+brew = "huadeity/tap/vscode-langservers-extracted"
