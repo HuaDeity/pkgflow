@@ -45,11 +45,6 @@ nix = "nixd"
 brew = false
 
 [[package]]
-nix = "nixfmt-rfc-style"
-# brew = "nixfmt"
-brew = false
-
-[[package]]
 nix = "nodejs"
 brew = "node"
 
