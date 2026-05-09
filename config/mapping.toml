@@ -49,6 +49,10 @@ nix = "nodejs"
 brew = "node"
 
 [[package]]
+nix = "package-version-server"
+brew = "huadeity/tap/package-version-server"
+
+[[package]]
 nix = "tree-sitter"
 brew = "tree-sitter-cli"
 
